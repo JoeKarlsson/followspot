@@ -58,11 +58,11 @@ See [`examples/sample.md`](examples/sample.md).
 
 ## Models
 
-`./followspot` uses the first model it finds:
+`./followspot` uses `-m path/to/model.bin` or the `FOLLOWSPOT_MODEL` environment variable if you give one. Otherwise it picks the largest model it finds, in this order:
 
-1. `-m path/to/model.bin` or the `FOLLOWSPOT_MODEL` environment variable
-2. `models/ggml-{large-v3-turbo,medium.en,medium,small.en,base.en}.bin`, in that order
-3. Screen Studio's bundled `ggml-medium.bin`, if you have Screen Studio installed on macOS
+1. `models/ggml-large-v3-turbo.bin`, `models/ggml-medium.en.bin`, `models/ggml-medium.bin`
+2. Screen Studio's bundled `ggml-medium.bin`, if you have Screen Studio installed on macOS
+3. `models/ggml-small.en.bin`, `models/ggml-base.en.bin`
 
 Download any model from [the whisper.cpp model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main) with `./followspot download <name>`.
 

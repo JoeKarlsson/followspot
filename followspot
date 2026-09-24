@@ -64,13 +64,14 @@ threads() {
     || echo 4
 }
 
-# Model: -m / FOLLOWSPOT_MODEL, else the best one in models/, else Screen
-# Studio's copy of medium if it's on this Mac.
+# Model: -m / FOLLOWSPOT_MODEL, else the largest one found. Screen Studio's
+# copy of medium ranks above small/base so a quick base.en download for
+# testing doesn't silently downgrade accuracy.
 if [[ -z "$MODEL" ]]; then
   for candidate in \
     models/ggml-large-v3-turbo.bin models/ggml-medium.en.bin models/ggml-medium.bin \
-    models/ggml-small.en.bin models/ggml-base.en.bin \
-    "$HOME/Library/Application Support/Screen Studio/models/ggml-medium.bin"; do
+    "$HOME/Library/Application Support/Screen Studio/models/ggml-medium.bin" \
+    models/ggml-small.en.bin models/ggml-base.en.bin; do
     if [[ -f "$candidate" ]]; then MODEL="$candidate"; break; fi
   done
 fi
