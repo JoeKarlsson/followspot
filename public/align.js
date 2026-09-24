@@ -176,6 +176,9 @@ export const DEFAULTS = {
   maxHeard: 14, // only align the newest N heard words
   minScore: 3.5, // alignment must be at least this strong
   minMatches: 2,
+  near: 4, // moves this short (right at the cursor) may use...
+  nearScore: 3, // ...this lower bar: "the script." after a pause
+  //             must be able to finish the script (1 + 2 = 3)
   farJump: 20, // jumps further than this need more evidence...
   farMatches: 4, // ...this many matched words
   distPenalty: 0.04,
@@ -224,10 +227,13 @@ export function align(tokens, cursor, heard, opts = {}) {
       curScore[j] = score;
       curMatch[j] = matches;
 
-      // Only cells that end on a match are valid landing spots.
-      if (ws > 0 && score >= o.minScore && matches >= o.minMatches) {
-        const pos = lo + j;
-        const delta = pos - cursor;
+      // Only cells that end on a match are valid landing spots. A short
+      // forward step right at the cursor is the least surprising move there
+      // is, so it gets a lower bar; everything else needs the full score.
+      const pos = lo + j;
+      const delta = pos - cursor;
+      const need = delta >= 0 && delta <= o.near ? o.nearScore : o.minScore;
+      if (ws > 0 && score >= need && matches >= o.minMatches) {
         if (delta > o.farJump && matches < o.farMatches) continue;
         const adjusted = score - (delta >= 0 ? o.distPenalty * delta : o.backPenalty * -delta);
         if (!best || adjusted > best.adjusted) best = { pos, score, matches, adjusted };
