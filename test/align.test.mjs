@@ -98,6 +98,26 @@ test("align will not leap far ahead on thin evidence", () => {
   assert.equal(align(t, 0, tokenizeHeard("uh something")), null);
 });
 
+test("align finishes on a short phrase said right at the cursor", () => {
+  // After a pause, the last window may hold only "the script." (1 + 2 = 3).
+  const t = tokensFor("When you pick back up, so does the script.");
+  const at = t.findIndex((x) => x.norm === "the");
+  const r = align(t, at, tokenizeHeard("the script."));
+  assert.ok(r);
+  assert.equal(r.pos, t.length);
+});
+
+test("the short-phrase allowance doesn't apply further ahead", () => {
+  const t = tokensFor("one two three four five six seven eight nine ten, and then the script ends.");
+  assert.equal(align(t, 0, tokenizeHeard("the script")), null);
+});
+
+test("common words alone never move the cursor, even right at it", () => {
+  const t = tokensFor("so does the script and the end.");
+  const at = t.findIndex((x) => x.norm === "the");
+  assert.equal(align(t, at, tokenizeHeard("the and the")), null);
+});
+
 test("align prefers the nearest copy of a repeated phrase", () => {
   const md =
     "go to the next step now. filler words here to pad the gap out a bit more. go to the next step now.";
