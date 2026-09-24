@@ -1,5 +1,5 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
+import { test } from "node:test";
 import { createDecimator, createRing, encodeWav, rms } from "../public/audio.js";
 
 test("decimator turns 48 kHz into 16 kHz, one output per three inputs", () => {
@@ -49,10 +49,10 @@ test("encodeWav writes a valid 16 kHz mono 16-bit header and clamps samples", ()
   assert.equal(ascii(0), "RIFF");
   assert.equal(ascii(8), "WAVE");
   assert.equal(ascii(36), "data");
-  assert.equal(v.getUint16(22, true), 1);      // mono
-  assert.equal(v.getUint32(24, true), 16000);  // sample rate
-  assert.equal(v.getUint16(34, true), 16);     // bits per sample
-  assert.equal(v.getUint32(40, true), 10);     // 5 samples * 2 bytes
+  assert.equal(v.getUint16(22, true), 1); // mono
+  assert.equal(v.getUint32(24, true), 16000); // sample rate
+  assert.equal(v.getUint16(34, true), 16); // bits per sample
+  assert.equal(v.getUint32(40, true), 10); // 5 samples * 2 bytes
   assert.deepEqual(
     [0, 1, 2, 3, 4].map((i) => v.getInt16(44 + i * 2, true)),
     [0, 32767, -32768, 32767, -32768],

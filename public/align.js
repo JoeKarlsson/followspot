@@ -1,9 +1,28 @@
 // Script parsing + speech-to-script alignment. Pure functions, no DOM, so
 // they run in the browser and under `node --test`.
 
-const ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
-  "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
-  "eighteen", "nineteen"];
+const ONES = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+];
 const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
 
 // Whisper writes "30", scripts say "thirty". Spell digits out on both sides.
@@ -54,7 +73,8 @@ export function parseScript(md) {
 
   const paragraphs = [];
   for (const block of body.split(/\n\s*\n/)) {
-    const lines = block.split("\n")
+    const lines = block
+      .split("\n")
       .map((l) => l.trim())
       .filter((l) => l && !/^#{1,6}\s/.test(l) && !/^\*\*[^*]+:\*\*/.test(l))
       .map((l) => l.replace(/^>\s?/, ""));
@@ -64,7 +84,10 @@ export function parseScript(md) {
     const cueRe = /\*\[([^\]]*)\]\*|\[([^\]]*)\]/g;
     let last = 0;
     const pushWords = (s) => {
-      for (const raw of s.replace(/\*\*|__/g, "").replace(/[*_`]/g, "").split(/\s+/)) {
+      for (const raw of s
+        .replace(/\*\*|__/g, "")
+        .replace(/[*_`]/g, "")
+        .split(/\s+/)) {
         if (raw) items.push({ type: "word", text: raw });
       }
     };
@@ -110,8 +133,31 @@ function levenshtein(a, b) {
   return prev[b.length];
 }
 
-const STOP = new Set(["the", "a", "an", "and", "to", "of", "it", "is", "in", "on", "you",
-  "i", "that", "this", "so", "your", "for", "with", "its", "be", "or", "at", "but"]);
+const STOP = new Set([
+  "the",
+  "a",
+  "an",
+  "and",
+  "to",
+  "of",
+  "it",
+  "is",
+  "in",
+  "on",
+  "you",
+  "i",
+  "that",
+  "this",
+  "so",
+  "your",
+  "for",
+  "with",
+  "its",
+  "be",
+  "or",
+  "at",
+  "but",
+]);
 
 // How much a script word and a heard word agree. 0 = no match.
 export function wordScore(s, h) {
@@ -125,13 +171,13 @@ export function wordScore(s, h) {
 }
 
 export const DEFAULTS = {
-  back: 12,        // words behind the cursor to search (re-takes, repeats)
-  ahead: 60,       // words ahead of the cursor to search
-  maxHeard: 14,    // only align the newest N heard words
-  minScore: 3.5,   // alignment must be at least this strong
+  back: 12, // words behind the cursor to search (re-takes, repeats)
+  ahead: 60, // words ahead of the cursor to search
+  maxHeard: 14, // only align the newest N heard words
+  minScore: 3.5, // alignment must be at least this strong
   minMatches: 2,
-  farJump: 20,     // jumps further than this need more evidence...
-  farMatches: 4,   // ...this many matched words
+  farJump: 20, // jumps further than this need more evidence...
+  farMatches: 4, // ...this many matched words
   distPenalty: 0.04,
   backPenalty: 0.15,
 };
@@ -163,9 +209,18 @@ export function align(tokens, cursor, heard, opts = {}) {
       const left = curScore[j - 1] + GAP;
       let score = 0;
       let matches = 0;
-      if (diag > score) { score = diag; matches = prevMatch[j - 1] + (ws > 0 ? 1 : 0); }
-      if (up > score) { score = up; matches = prevMatch[j]; }
-      if (left > score) { score = left; matches = curMatch[j - 1]; }
+      if (diag > score) {
+        score = diag;
+        matches = prevMatch[j - 1] + (ws > 0 ? 1 : 0);
+      }
+      if (up > score) {
+        score = up;
+        matches = prevMatch[j];
+      }
+      if (left > score) {
+        score = left;
+        matches = curMatch[j - 1];
+      }
       curScore[j] = score;
       curMatch[j] = matches;
 

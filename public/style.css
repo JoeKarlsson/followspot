@@ -11,9 +11,12 @@
   --bg: #000;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   margin: 0;
   height: 100%;
   background: var(--bg);
@@ -33,7 +36,9 @@ html, body {
   overflow: hidden;
 }
 
-#stage.mirror { transform: scaleX(-1); }
+#stage.mirror {
+  transform: scaleX(-1);
+}
 
 #scroller {
   position: absolute;
@@ -51,13 +56,28 @@ html, body {
   padding-bottom: 100vh;
 }
 
-#script p { margin: 0 0 0.9em; }
+#script p {
+  margin: 0 0 0.9em;
+}
 
-.w { transition: color 0.15s; cursor: pointer; border-radius: 0.1em; }
-.w:hover { background: rgba(255, 216, 77, 0.18); }
-body.idle, body.idle .w { cursor: none; }
-.w.read { color: var(--read); }
-.w.now { color: var(--now); }
+.w {
+  transition: color 0.15s;
+  cursor: pointer;
+  border-radius: 0.1em;
+}
+.w:hover {
+  background: rgba(255, 216, 77, 0.18);
+}
+body.idle,
+body.idle .w {
+  cursor: none;
+}
+.w.read {
+  color: var(--read);
+}
+.w.now {
+  color: var(--now);
+}
 
 .cue {
   display: block;
@@ -68,8 +88,13 @@ body.idle, body.idle .w { cursor: none; }
   margin: 0.3em 0;
 }
 
-.cue.inline { display: inline; margin: 0 0.3em; }
-body.hide-cues .cue { display: none; }
+.cue.inline {
+  display: inline;
+  margin: 0 0.3em;
+}
+body.hide-cues .cue {
+  display: none;
+}
 
 #reading-line {
   position: absolute;
@@ -81,7 +106,9 @@ body.hide-cues .cue { display: none; }
   pointer-events: none;
 }
 
-body.hide-line #reading-line { display: none; }
+body.hide-line #reading-line {
+  display: none;
+}
 
 #hud {
   position: fixed;
@@ -96,7 +123,9 @@ body.hide-line #reading-line { display: none; }
   z-index: 5;
 }
 
-body.hide-hud #hud { display: none; }
+body.hide-hud #hud {
+  display: none;
+}
 
 /* Hover toolbar: appears on mouse move, fades after a couple of seconds. */
 #toolbar {
@@ -113,7 +142,9 @@ body.hide-hud #hud { display: none; }
   font-size: 13px;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
   max-width: calc(100vw - 32px);
 }
 
@@ -123,11 +154,30 @@ body.show-toolbar #toolbar {
   transform: translate(-50%, 0);
 }
 
-#toolbar .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; justify-content: center; }
-#toolbar .group { display: inline-flex; align-items: center; gap: 6px; }
-#toolbar .label { color: #999; }
-#toolbar output { min-width: 2.2em; text-align: center; font-variant-numeric: tabular-nums; }
-#toolbar input[type="range"] { width: 110px; accent-color: var(--now); }
+#toolbar .controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  justify-content: center;
+}
+#toolbar .group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+#toolbar .label {
+  color: #999;
+}
+#toolbar output {
+  min-width: 2.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+#toolbar input[type="range"] {
+  width: 110px;
+  accent-color: var(--now);
+}
 #toolbar button {
   background: #2a2a2a;
   color: #eee;
@@ -137,19 +187,66 @@ body.show-toolbar #toolbar {
   font: inherit;
   cursor: pointer;
 }
-#toolbar button:hover { background: #353535; }
-#toolbar button.primary { background: var(--now); color: #000; border-color: var(--now); font-weight: 600; }
-#toolbar button.toggle.on { background: #4a3f12; border-color: var(--now); color: var(--now); }
-#toolbar .keys { margin-top: 8px; color: #777; font-size: 11px; text-align: center; }
+#toolbar button:hover {
+  background: #353535;
+}
+#toolbar button.primary {
+  background: var(--now);
+  color: #000;
+  border-color: var(--now);
+  font-weight: 600;
+}
+#toolbar button.toggle.on {
+  background: #4a3f12;
+  border-color: var(--now);
+  color: var(--now);
+}
+#toolbar .keys {
+  margin-top: 8px;
+  color: #777;
+  font-size: 11px;
+  text-align: center;
+}
 
-.row { display: flex; align-items: center; gap: 10px; }
-#dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
-#dot.on { background: #3ddc84; }
-#dot.busy { background: #ffd84d; }
-#dot.err { background: #ff5a5a; }
-#meter { width: 80px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
-#level { display: block; height: 100%; width: 0; background: #3ddc84; }
-#heard { margin-top: 6px; color: #777; font-style: italic; min-height: 1em; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+#dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #555;
+}
+#dot.on {
+  background: #3ddc84;
+}
+#dot.busy {
+  background: #ffd84d;
+}
+#dot.err {
+  background: #ff5a5a;
+}
+#meter {
+  width: 80px;
+  height: 6px;
+  background: #333;
+  border-radius: 3px;
+  overflow: hidden;
+}
+#level {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: #3ddc84;
+}
+#heard {
+  margin-top: 6px;
+  color: #777;
+  font-style: italic;
+  min-height: 1em;
+}
 
 #drop {
   position: fixed;
@@ -164,9 +261,17 @@ body.show-toolbar #toolbar {
   border-radius: 16px;
 }
 
-#drop[hidden] { display: none; }
-#drop .small { font-size: 16px; }
-body.dragging #drop { display: grid; border-color: var(--now); color: var(--fg); }
+#drop[hidden] {
+  display: none;
+}
+#drop .small {
+  font-size: 16px;
+}
+body.dragging #drop {
+  display: grid;
+  border-color: var(--now);
+  color: var(--fg);
+}
 
 dialog {
   background: #161616;
@@ -177,9 +282,41 @@ dialog {
   width: min(460px, 92vw);
 }
 
-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
-dialog h2 { margin: 0 0 12px; font-size: 18px; }
-dialog label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0; font-size: 14px; }
-dialog label.check { justify-content: flex-start; }
-dialog input[type="number"], dialog select { width: 150px; background: #222; color: var(--fg); border: 1px solid #444; border-radius: 6px; padding: 4px 6px; }
-#settings button { margin-top: 12px; width: 100%; padding: 8px; border-radius: 8px; border: 0; background: var(--now); color: #000; font-weight: 600; cursor: pointer; }
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+dialog h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+dialog label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+dialog label.check {
+  justify-content: flex-start;
+}
+dialog input[type="number"],
+dialog select {
+  width: 150px;
+  background: #222;
+  color: var(--fg);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+#settings button {
+  margin-top: 12px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 0;
+  background: var(--now);
+  color: #000;
+  font-weight: 600;
+  cursor: pointer;
+}

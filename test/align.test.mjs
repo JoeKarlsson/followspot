@@ -1,8 +1,6 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
-import {
-  align, buildTokens, normalize, numToWords, parseScript, tokenizeHeard,
-} from "../public/align.js";
+import { test } from "node:test";
+import { align, buildTokens, normalize, numToWords, parseScript, tokenizeHeard } from "../public/align.js";
 
 const SCRIPT = `# Title
 
@@ -34,7 +32,11 @@ const norms = (md) => tokensFor(md).map((t) => t.norm);
 test("parseScript keeps only the body between the first two rules", () => {
   const paras = parseScript(SCRIPT);
   assert.equal(paras.length, 5);
-  const text = paras.flat().filter((i) => i.type === "word").map((i) => i.text).join(" ");
+  const text = paras
+    .flat()
+    .filter((i) => i.type === "word")
+    .map((i) => i.text)
+    .join(" ");
   assert.ok(!text.includes("Format"));
   assert.ok(!text.includes("Record"));
 });
@@ -52,7 +54,7 @@ test("a plain file without rules is used whole", () => {
 
 test("normalize folds contractions, punctuation, hyphens, and digits", () => {
   assert.deepEqual(normalize("It's"), ["its"]);
-  assert.deepEqual(normalize("\"connector,\""), ["connector"]);
+  assert.deepEqual(normalize('"connector,"'), ["connector"]);
   assert.deepEqual(normalize("right-click"), ["right", "click"]);
   assert.deepEqual(normalize("30"), ["thirty"]);
   assert.deepEqual(numToWords(1234), ["one", "thousand", "two", "hundred", "thirty", "four"]);
@@ -97,7 +99,8 @@ test("align will not leap far ahead on thin evidence", () => {
 });
 
 test("align prefers the nearest copy of a repeated phrase", () => {
-  const md = "go to the next step now. filler words here to pad the gap out a bit more. go to the next step now.";
+  const md =
+    "go to the next step now. filler words here to pad the gap out a bit more. go to the next step now.";
   const t = tokensFor(md);
   const r = align(t, 0, tokenizeHeard("go to the next step"));
   assert.ok(r);
