@@ -114,15 +114,30 @@ function loadText(md) {
 
 let dropped = false; // a dropped file wins over current.md until reload
 
+// ?script=name.md loads another file from public/ (the README demo uses
+// demo.md). Plain file names only, so the param can't reach outside public/.
+const requested = new URLSearchParams(location.search).get("script");
+const scriptFile = /^[\w.-]+\.(md|txt)$/.test(requested ?? "") ? requested : "current.md";
+
+async function fetchText(name) {
+  try {
+    const res = await fetch(`${name}?t=${Date.now()}`, { cache: "no-store" });
+    return res.ok ? await res.text() : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchScript() {
   if (dropped) return;
-  try {
-    const res = await fetch(`current.md?t=${Date.now()}`, { cache: "no-store" });
-    if (res.ok) return loadText(await res.text());
-  } catch {}
+  const text = await fetchText(scriptFile);
+  if (text !== null) return loadText(text);
   if (scriptText === null) {
+    // Nothing linked: last dropped script, else the demo, so a first run
+    // shows something you can read aloud right away.
     const saved = safeGet("followspot.script") ?? safeGet("prompter.script");
-    if (saved) loadText(saved);
+    const fallback = saved ?? (await fetchText("demo.md"));
+    if (fallback !== null) loadText(fallback);
     else $("drop").hidden = false;
   }
 }
@@ -220,7 +235,11 @@ async function startAudio() {
     level = level * 0.8 + r * 0.2;
     if (r > settings.gate) lastLoud = performance.now();
   };
-  src.connect(node);
+  // Route through a muted gain to the output: some engines skip processing
+  // nodes that nothing downstream is pulling from.
+  const mute = audioCtx.createGain();
+  mute.gain.value = 0;
+  src.connect(node).connect(mute).connect(audioCtx.destination);
   await populateMics();
 }
 
