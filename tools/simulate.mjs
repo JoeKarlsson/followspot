@@ -43,28 +43,46 @@ if (skip) {
 }
 
 const dir = mkdtempSync(join(tmpdir(), "followspot-sim-"));
-execFileSync("say", ["-r", opt("rate", "170"), "-o", join(dir, "s.aiff"), spoken]);
-execFileSync("ffmpeg", [
-  "-loglevel",
-  "error",
-  "-y",
-  "-i",
-  join(dir, "s.aiff"),
-  "-ar",
-  String(RATE),
-  "-ac",
-  "1",
-  "-c:a",
-  "pcm_s16le",
-  join(dir, "s.wav"),
-]);
 
-// Minimal WAV reader: find the data chunk, read 16-bit mono PCM.
-const buf = readFileSync(join(dir, "s.wav"));
-let off = 12;
-while (buf.toString("ascii", off, off + 4) !== "data") off += 8 + buf.readUInt32LE(off + 4);
-const int16 = new Int16Array(buf.buffer, buf.byteOffset + off + 8, buf.readUInt32LE(off + 4) / 2);
-const pcm = Float32Array.from(int16, (s) => s / 0x8000);
+// say + ffmpeg -> 16 kHz mono float samples.
+function synthesize() {
+  execFileSync("say", ["-r", opt("rate", "170"), "-o", join(dir, "s.aiff"), spoken]);
+  execFileSync("ffmpeg", [
+    "-loglevel",
+    "error",
+    "-y",
+    "-i",
+    join(dir, "s.aiff"),
+    "-ar",
+    String(RATE),
+    "-ac",
+    "1",
+    "-c:a",
+    "pcm_s16le",
+    join(dir, "s.wav"),
+  ]);
+  // Minimal WAV reader: find the data chunk, read 16-bit mono PCM.
+  const buf = readFileSync(join(dir, "s.wav"));
+  let off = 12;
+  while (buf.toString("ascii", off, off + 4) !== "data") off += 8 + buf.readUInt32LE(off + 4);
+  const int16 = new Int16Array(buf.buffer, buf.byteOffset + off + 8, buf.readUInt32LE(off + 4) / 2);
+  return Float32Array.from(int16, (s) => s / 0x8000);
+}
+
+// On fresh CI runners `say` sometimes writes an empty file (the speech
+// service isn't up yet), so retry before giving up with a clear message.
+let pcm = new Float32Array(0);
+for (let attempt = 1; attempt <= 3 && pcm.length < RATE; attempt++) {
+  if (attempt > 1) {
+    console.warn(`say produced no audio, retrying (${attempt}/3)`);
+    execFileSync("sleep", ["2"]);
+  }
+  pcm = synthesize();
+}
+if (pcm.length < RATE) {
+  console.error("say produced no audio after 3 attempts; is macOS speech synthesis available?");
+  process.exit(2);
+}
 
 let cursor = 0;
 let moves = 0;
