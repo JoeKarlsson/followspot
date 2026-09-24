@@ -108,7 +108,9 @@ if [[ -n "$SCRIPT" ]]; then
 fi
 
 URL="http://127.0.0.1:${PORT}/"
+THREADS="$(threads)"
 echo "Model:  $MODEL"
+echo "Threads: $THREADS"
 if [[ -n "$VAD_FILE" ]]; then echo "VAD:    $VAD_FILE"
 elif [[ "$VAD" == 1 ]]; then echo "VAD:    off (./followspot download vad to enable)"
 fi
@@ -131,6 +133,6 @@ exec whisper-server \
   --public public \
   -l en \
   -nt \
-  -t "$(threads)" \
+  -t "$THREADS" \
   ${VAD_ARGS[@]+"${VAD_ARGS[@]}"} \
   ${EXTRA[@]+"${EXTRA[@]}"}
