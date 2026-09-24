@@ -8,6 +8,9 @@ on:
 permissions:
   contents: read
 
+env:
+  WHISPER_CPP_VERSION: v1.9.4
+
 jobs:
   unit:
     name: Unit tests (Node ${{ matrix.node }})
@@ -38,12 +41,88 @@ jobs:
       - name: ShellCheck (launcher)
         run: shellcheck followspot
 
-  e2e:
-    name: End to end (whisper.cpp + macOS say)
+  # The required end-to-end check. Linux runners are dedicated VMs with steady
+  # speed; the macOS ones varied from ~1 s to ~14 s per Whisper request between
+  # identical runs. Audio comes from committed fixtures (npm run fixtures), so
+  # this needs no speech synthesis.
+  e2e-linux:
+    name: End to end (Linux)
+    runs-on: ubuntu-latest
+    needs: [unit, lint]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: CPU fingerprint for the build cache
+        # whisper.cpp builds for the host CPU; a binary cached on one CPU type
+        # can crash with illegal instructions on another, so key on the flags.
+        id: cpu
+        run: echo "flags=$(grep -m1 '^flags' /proc/cpuinfo | md5sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+      - name: Cache whisper-server build
+        id: whisper-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/whisper-bin
+          key: whisper-server-${{ env.WHISPER_CPP_VERSION }}-${{ runner.os }}-${{ runner.arch }}-${{ steps.cpu.outputs.flags }}
+      - name: Build whisper-server
+        if: steps.whisper-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$WHISPER_CPP_VERSION" https://github.com/ggml-org/whisper.cpp /tmp/whisper.cpp
+          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF -DWHISPER_BUILD_TESTS=OFF
+          cmake --build /tmp/whisper.cpp/build -j --target whisper-server
+          mkdir -p ~/whisper-bin
+          cp /tmp/whisper.cpp/build/bin/whisper-server ~/whisper-bin/
+      - run: echo "$HOME/whisper-bin" >> "$GITHUB_PATH"
+      - name: Cache Whisper and VAD models
+        uses: actions/cache@v6
+        with:
+          path: |
+            models/ggml-base.en.bin
+            models/ggml-silero-v6.2.0.bin
+          key: whisper-ggml-base.en-silero-v6.2.0-v1
+      - name: Download models
+        run: |
+          test -f models/ggml-base.en.bin || ./followspot download base.en
+          test -f models/ggml-silero-v6.2.0.bin || ./followspot download vad
+      - name: Start Followspot server
+        # -ac 512: Whisper's encoder pads every request to 30 s of audio; 512
+        # frames (~10 s) still covers the longest window, and cut CPU latency
+        # ~4x in benchmarks (784 -> 197 ms median) with identical tracking.
+        run: |
+          ./followspot -m models/ggml-base.en.bin --no-open -- -ac 512 > server.log 2>&1 &
+          for _ in $(seq 1 120); do
+            curl -fs -o /dev/null http://127.0.0.1:8178/ && exit 0
+            sleep 1
+          done
+          cat server.log
+          exit 1
+      - name: Runner info
+        run: |
+          echo "cpu: $(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2)  nproc=$(nproc)"
+          grep -E "^(Model|Threads|VAD):" server.log
+      - name: Simulated read-throughs (straight, and skipping every 3rd sentence)
+        run: npm run e2e
+      - name: VAD returns nothing for silence
+        run: |
+          grep -q "^VAD:    models/ggml-silero" server.log
+          ffmpeg -loglevel error -y -f lavfi -i anullsrc=r=16000:cl=mono -t 3 -c:a pcm_s16le silence.wav
+          out=$(curl -s http://127.0.0.1:8178/inference -F file=@silence.wav -F response_format=json)
+          echo "$out"
+          test "$out" = '{"text":""}'
+      - name: Server log
+        if: failure()
+        run: cat server.log
+
+  # macOS smoke test on main only (not a PR gate): the Homebrew install path,
+  # the launcher on bash 3.2, and live `say` synthesis rather than fixtures.
+  e2e-macos:
+    name: macOS smoke (Homebrew + say)
+    if: github.event_name == 'push'
     runs-on: macos-latest
     needs: [unit, lint]
-    # Runner speed varies ~5x between identical runs; cap it so a slow or
-    # stuck runner fails instead of holding a PR open.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -64,9 +143,6 @@ jobs:
           test -f models/ggml-base.en.bin || ./followspot download base.en
           test -f models/ggml-silero-v6.2.0.bin || ./followspot download vad
       - name: Start Followspot server
-        # -ac 512: Whisper's encoder pads every request to 30 s of audio; 512
-        # frames (~10 s) still covers the longest window, and cut CPU latency
-        # ~4x in benchmarks (784 -> 197 ms median) with identical tracking.
         run: |
           ./followspot -m models/ggml-base.en.bin --no-open -- --no-gpu -ac 512 > server.log 2>&1 &
           for _ in $(seq 1 120); do
@@ -77,21 +153,10 @@ jobs:
           exit 1
       - name: Runner info
         run: |
-          echo "cpu: $(sysctl -n machdep.cpu.brand_string)  ncpu=$(sysctl -n hw.ncpu)  physical=$(sysctl -n hw.physicalcpu)  perf=$(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null || echo n/a)"
+          echo "cpu: $(sysctl -n machdep.cpu.brand_string)  ncpu=$(sysctl -n hw.ncpu)"
           grep -E "^(Model|Threads|VAD):" server.log
-      # One window per second instead of two: half the requests, and tracking
-      # held (69-71/71) in local runs. The browser still uses 250 ms.
-      - name: Simulated read-through
+      - name: Simulated read-through (live say)
         run: node tools/simulate.mjs examples/sample.md --step 1
-      - name: Simulated read-through, skipping every 3rd sentence
-        run: node tools/simulate.mjs examples/sample.md --step 1 --skip 3
-      - name: VAD returns nothing for silence
-        run: |
-          grep -q "^VAD:    models/ggml-silero" server.log
-          ffmpeg -loglevel error -y -f lavfi -i anullsrc=r=16000:cl=mono -t 3 -c:a pcm_s16le silence.wav
-          out=$(curl -s http://127.0.0.1:8178/inference -F file=@silence.wav -F response_format=json)
-          echo "$out"
-          test "$out" = '{"text":""}'
       - name: Server log
         if: failure()
         run: cat server.log

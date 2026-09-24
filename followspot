@@ -54,7 +54,7 @@ done
 if ! command -v whisper-server >/dev/null; then
   echo "whisper-server not found." >&2
   echo "  macOS: brew install whisper-cpp" >&2
-  echo "  Linux: build it from https://github.com/ggml-org/whisper.cpp and put whisper-server on PATH" >&2
+  echo "  Linux: build it from source; see the README's Linux section" >&2
   exit 1
 fi
 

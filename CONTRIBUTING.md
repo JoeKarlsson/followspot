@@ -25,7 +25,8 @@ npm run format     # apply Biome's formatting and safe fixes
 npm run lint       # Biome lint + format check, and ShellCheck on the launcher
 npm run check
 npm test
-npm run e2e        # with ./followspot running
+npm run e2e        # with ./followspot running (replays test/fixtures; any OS)
+npm run fixtures   # only if you edited examples/sample.md (macOS); commit the new fixtures
 ```
 
 CI runs all of these except `format`, and `main` only accepts pull requests where they pass.
@@ -60,7 +61,8 @@ public/audio.js          decimator, ring buffer, RMS, WAV encoder (pure)
 public/recorder-worklet.js  AudioWorklet that forwards mic samples
 public/demo.md           demo script (first run, README GIF)
 test/                    node:test unit tests
-tools/simulate.mjs       say + whisper-server end-to-end read-through
+tools/simulate.mjs       end-to-end read-through (live say, or --audio fixture)
+test/fixtures/           recorded speech + the exact text it was recorded from
 tools/record-demo.mjs    records docs/demo.gif through the real pipeline (headless Chrome)
 examples/                sample scripts
 biome.json               lint + format config
