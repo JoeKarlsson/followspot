@@ -1,0 +1,110 @@
+#!/usr/bin/env bash
+# Whisper Prompter launcher.
+#
+#   ./prompter [script.md] [-m model.bin] [-p port] [--no-open] [-- whisper-server flags]
+#   ./prompter download <name>     # e.g. small.en, medium.en, large-v3-turbo
+#
+# Starts whisper.cpp's server on localhost, which also serves the prompter
+# page, then opens it in your browser.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+PORT="${PROMPTER_PORT:-8178}"
+MODEL="${PROMPTER_MODEL:-}"
+OPEN=1
+SCRIPT=""
+EXTRA=()
+
+usage() {
+  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  exit "${1:-0}"
+}
+
+if [[ "${1:-}" == "download" ]]; then
+  name="${2:?usage: ./prompter download <name>, e.g. small.en}"
+  mkdir -p models
+  url="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${name}.bin"
+  echo "Downloading ${url}"
+  curl -fL --progress-bar -o "models/ggml-${name}.bin.part" "$url"
+  mv "models/ggml-${name}.bin.part" "models/ggml-${name}.bin"
+  echo "Saved models/ggml-${name}.bin"
+  exit 0
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -m|--model) MODEL="$2"; shift 2 ;;
+    -p|--port) PORT="$2"; shift 2 ;;
+    --no-open) OPEN=0; shift ;;
+    -h|--help) usage ;;
+    --) shift; EXTRA=("$@"); break ;;
+    -*) echo "Unknown option: $1" >&2; usage 1 ;;
+    *) SCRIPT="$1"; shift ;;
+  esac
+done
+
+if ! command -v whisper-server >/dev/null; then
+  echo "whisper-server not found." >&2
+  echo "  macOS: brew install whisper.cpp" >&2
+  echo "  Linux: build it from https://github.com/ggml-org/whisper.cpp and put whisper-server on PATH" >&2
+  exit 1
+fi
+
+open_url() {
+  if command -v open >/dev/null; then open "$1"
+  elif command -v xdg-open >/dev/null; then xdg-open "$1" >/dev/null 2>&1
+  else echo "Open $1 in your browser."
+  fi
+}
+
+threads() {
+  sysctl -n hw.perflevel0.physicalcpu 2>/dev/null \
+    || sysctl -n hw.physicalcpu 2>/dev/null \
+    || nproc 2>/dev/null \
+    || echo 4
+}
+
+# Model: -m / PROMPTER_MODEL, else the best one in models/, else Screen
+# Studio's copy of medium if it's on this Mac.
+if [[ -z "$MODEL" ]]; then
+  for candidate in \
+    models/ggml-large-v3-turbo.bin models/ggml-medium.en.bin models/ggml-medium.bin \
+    models/ggml-small.en.bin models/ggml-base.en.bin \
+    "$HOME/Library/Application Support/Screen Studio/models/ggml-medium.bin"; do
+    if [[ -f "$candidate" ]]; then MODEL="$candidate"; break; fi
+  done
+fi
+if [[ -z "$MODEL" || ! -f "$MODEL" ]]; then
+  echo "No Whisper model found. Get one with: ./prompter download small.en" >&2
+  exit 1
+fi
+
+# Link (not copy) the script so edits show up in the prompter live.
+if [[ -n "$SCRIPT" ]]; then
+  if [[ ! -f "$SCRIPT" ]]; then echo "Script not found: $SCRIPT" >&2; exit 1; fi
+  ln -sf "$(cd "$(dirname "$SCRIPT")" && pwd)/$(basename "$SCRIPT")" public/current.md
+fi
+
+URL="http://127.0.0.1:${PORT}/"
+echo "Model:  $MODEL"
+[[ -L public/current.md ]] && echo "Script: $(readlink public/current.md)"
+echo "Open:   $URL   (Ctrl+C to stop)"
+
+if [[ "$OPEN" == 1 ]]; then
+  (
+    for _ in $(seq 1 60); do
+      if curl -fs -o /dev/null "$URL"; then open_url "$URL"; exit 0; fi
+      sleep 0.5
+    done
+  ) &
+fi
+
+exec whisper-server \
+  -m "$MODEL" \
+  --host 127.0.0.1 \
+  --port "$PORT" \
+  --public public \
+  -l en \
+  -nt \
+  -t "$(threads)" \
+  ${EXTRA[@]+"${EXTRA[@]}"}

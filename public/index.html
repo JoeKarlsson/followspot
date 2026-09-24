@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Whisper Prompter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="stage">
+    <div id="scroller"><div id="script"></div></div>
+    <div id="reading-line"></div>
+  </div>
+
+  <div id="drop" hidden>
+    <p>Drop a script (.md or .txt) here</p>
+    <p class="small">or run <code>./prompter path/to/script.md</code></p>
+  </div>
+
+  <div id="hud">
+    <div class="row">
+      <span id="dot"></span>
+      <span id="status">Paused</span>
+      <span id="meter"><span id="level"></span></span>
+      <span id="latency"></span>
+    </div>
+    <div id="heard"></div>
+  </div>
+
+  <div id="toolbar">
+    <div class="controls">
+      <button id="tb-listen" class="primary">Listen</button>
+      <span class="group">
+        <span class="label">Size</span>
+        <button data-step="fontSize" data-by="-4">−</button>
+        <output id="tb-fontSize"></output>
+        <button data-step="fontSize" data-by="4">+</button>
+      </span>
+      <label class="group"><span class="label">Width</span>
+        <input type="range" data-setting="columnWidth" min="20" max="100" step="1"></label>
+      <label class="group"><span class="label">Top margin</span>
+        <input type="range" data-setting="marginTop" min="0" max="45" step="1"></label>
+      <label class="group"><span class="label">Bottom margin</span>
+        <input type="range" data-setting="marginBottom" min="0" max="45" step="1"></label>
+      <label class="group"><span class="label">Reading line</span>
+        <input type="range" data-setting="readingLine" min="10" max="90" step="1"></label>
+      <button id="tb-mirror" class="toggle">Mirror</button>
+      <button id="tb-fullscreen">Fullscreen</button>
+      <button id="tb-settings">More…</button>
+    </div>
+    <div class="keys">
+      Click any word to jump there · Space listen · ←/→ word · ↑/↓ paragraph · R top · M mirror · F fullscreen · H hide status
+    </div>
+  </div>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <label>Microphone <select id="mic"></select></label>
+      <label>Font size (px) <input id="fontSize" type="number" min="20" max="160" step="2"></label>
+      <label>Column width (% of screen) <input id="columnWidth" type="number" min="20" max="100" step="2"></label>
+      <label>Reading line (% of text area) <input id="readingLine" type="number" min="10" max="90" step="1"></label>
+      <label>Top margin (% of screen) <input id="marginTop" type="number" min="0" max="45" step="1"></label>
+      <label>Bottom margin (% of screen) <input id="marginBottom" type="number" min="0" max="45" step="1"></label>
+      <label>Listen window (seconds) <input id="windowSec" type="number" min="1.5" max="8" step="0.5"></label>
+      <label>Silence gate (0 to 0.1) <input id="gate" type="number" min="0" max="0.1" step="0.002"></label>
+      <label>Coast speed when not matching (words/sec, 0 = off) <input id="coast" type="number" min="0" max="5" step="0.1"></label>
+      <label class="check"><input id="mirror" type="checkbox"> Mirror (flip horizontally)</label>
+      <label class="check"><input id="showCues" type="checkbox"> Show stage directions</label>
+      <label class="check"><input id="showReadingLine" type="checkbox"> Show reading line</label>
+      <button value="close">Done</button>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

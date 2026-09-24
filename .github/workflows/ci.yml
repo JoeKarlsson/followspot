@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm run check
+      - run: npm test
+
+  e2e:
+    name: End to end (whisper.cpp + macOS say)
+    runs-on: macos-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install whisper.cpp and ffmpeg
+        run: brew install whisper.cpp ffmpeg
+      - name: Cache Whisper model
+        uses: actions/cache@v4
+        with:
+          path: models/ggml-base.en.bin
+          key: whisper-ggml-base.en-v1
+      - name: Download model
+        run: test -f models/ggml-base.en.bin || ./prompter download base.en
+      - name: Start prompter server
+        run: |
+          ./prompter -m models/ggml-base.en.bin --no-open -- --no-gpu > server.log 2>&1 &
+          for _ in $(seq 1 120); do
+            curl -fs -o /dev/null http://127.0.0.1:8178/ && exit 0
+            sleep 1
+          done
+          cat server.log
+          exit 1
+      - name: Simulated read-through
+        run: npm run e2e
+      - name: Simulated read-through, skipping every 3rd sentence
+        run: node tools/simulate.mjs examples/sample.md --skip 3
+      - name: Server log
+        if: failure()
+        run: cat server.log

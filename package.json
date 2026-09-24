@@ -1,0 +1,17 @@
+{
+  "name": "whisper-prompter",
+  "version": "0.1.0",
+  "description": "A voice-following browser teleprompter powered by a local whisper.cpp model.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "for f in public/*.js tools/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done && bash -n prompter",
+    "e2e": "node tools/simulate.mjs examples/sample.md",
+    "start": "./prompter"
+  }
+}

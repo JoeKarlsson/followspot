@@ -1,0 +1,185 @@
+:root {
+  --font-size: 64px;
+  --column-width: 56vw;
+  --reading-line: 45%;
+  --margin-top: 0vh;
+  --margin-bottom: 0vh;
+  --fg: #f5f5f5;
+  --read: #6b6b6b;
+  --cue: #d9a441;
+  --now: #ffd84d;
+  --bg: #000;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* The text area. Top/bottom margins clip it so text only shows in the band
+   you want (e.g. the part of the glass in front of the lens). */
+#stage {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--margin-top);
+  bottom: var(--margin-bottom);
+  overflow: hidden;
+}
+
+#stage.mirror { transform: scaleX(-1); }
+
+#scroller {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: var(--column-width);
+  transform: translateX(-50%);
+  will-change: transform;
+}
+
+#script {
+  font-size: var(--font-size);
+  line-height: 1.35;
+  font-weight: 600;
+  padding-bottom: 100vh;
+}
+
+#script p { margin: 0 0 0.9em; }
+
+.w { transition: color 0.15s; cursor: pointer; border-radius: 0.1em; }
+.w:hover { background: rgba(255, 216, 77, 0.18); }
+body.idle, body.idle .w { cursor: none; }
+.w.read { color: var(--read); }
+.w.now { color: var(--now); }
+
+.cue {
+  display: block;
+  font-size: 0.4em;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--cue);
+  margin: 0.3em 0;
+}
+
+.cue.inline { display: inline; margin: 0 0.3em; }
+body.hide-cues .cue { display: none; }
+
+#reading-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--reading-line);
+  height: 0;
+  border-top: 2px solid rgba(255, 216, 77, 0.25);
+  pointer-events: none;
+}
+
+body.hide-line #reading-line { display: none; }
+
+#hud {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  max-width: 28vw;
+  font-size: 13px;
+  color: #aaa;
+  background: rgba(20, 20, 20, 0.8);
+  border-radius: 8px;
+  padding: 8px 12px;
+  z-index: 5;
+}
+
+body.hide-hud #hud { display: none; }
+
+/* Hover toolbar: appears on mouse move, fades after a couple of seconds. */
+#toolbar {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translate(-50%, 12px);
+  z-index: 6;
+  background: rgba(24, 24, 24, 0.94);
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 10px 14px 8px;
+  color: #ddd;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  max-width: calc(100vw - 32px);
+}
+
+body.show-toolbar #toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+#toolbar .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; justify-content: center; }
+#toolbar .group { display: inline-flex; align-items: center; gap: 6px; }
+#toolbar .label { color: #999; }
+#toolbar output { min-width: 2.2em; text-align: center; font-variant-numeric: tabular-nums; }
+#toolbar input[type="range"] { width: 110px; accent-color: var(--now); }
+#toolbar button {
+  background: #2a2a2a;
+  color: #eee;
+  border: 1px solid #3a3a3a;
+  border-radius: 7px;
+  padding: 4px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+#toolbar button:hover { background: #353535; }
+#toolbar button.primary { background: var(--now); color: #000; border-color: var(--now); font-weight: 600; }
+#toolbar button.toggle.on { background: #4a3f12; border-color: var(--now); color: var(--now); }
+#toolbar .keys { margin-top: 8px; color: #777; font-size: 11px; text-align: center; }
+
+.row { display: flex; align-items: center; gap: 10px; }
+#dot { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+#dot.on { background: #3ddc84; }
+#dot.busy { background: #ffd84d; }
+#dot.err { background: #ff5a5a; }
+#meter { width: 80px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+#level { display: block; height: 100%; width: 0; background: #3ddc84; }
+#heard { margin-top: 6px; color: #777; font-style: italic; min-height: 1em; }
+
+#drop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  font-size: 28px;
+  color: #888;
+  border: 3px dashed #333;
+  margin: 24px;
+  border-radius: 16px;
+}
+
+#drop[hidden] { display: none; }
+#drop .small { font-size: 16px; }
+body.dragging #drop { display: grid; border-color: var(--now); color: var(--fg); }
+
+dialog {
+  background: #161616;
+  color: var(--fg);
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px 24px;
+  width: min(460px, 92vw);
+}
+
+dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+dialog h2 { margin: 0 0 12px; font-size: 18px; }
+dialog label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0; font-size: 14px; }
+dialog label.check { justify-content: flex-start; }
+dialog input[type="number"], dialog select { width: 150px; background: #222; color: var(--fg); border: 1px solid #444; border-radius: 6px; padding: 4px 6px; }
+dialog button { margin-top: 12px; width: 100%; padding: 8px; border-radius: 8px; border: 0; background: var(--now); color: #000; font-weight: 600; cursor: pointer; }

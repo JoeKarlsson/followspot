@@ -1,0 +1,6 @@
+models/*.bin
+models/*.part
+public/current.md
+.tmp/
+node_modules/
+.DS_Store
