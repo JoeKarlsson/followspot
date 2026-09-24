@@ -109,6 +109,8 @@ script ◄── highlight + scroll ◄── cursor ◄── fuzzy alignment �
 ## Development
 
 ```bash
+npm install      # dev tooling (Biome); nothing in public/ depends on it
+npm run lint     # Biome lint + format check, ShellCheck on the launcher (npm run format fixes)
 npm run check    # syntax-check every JS file and the launcher
 npm test         # unit tests for the matcher and audio helpers
 npm run e2e      # end to end: needs ./followspot running (macOS, uses `say`)
