@@ -20,6 +20,7 @@ Most browser teleprompters that follow your voice use the browser's built-in spe
 brew install whisper-cpp          # macOS. On Linux, build whisper.cpp and put whisper-server on PATH.
 git clone https://github.com/JoeKarlsson/followspot.git && cd followspot
 ./followspot download small.en      # about 470 MB, see "Models"
+./followspot download vad           # under 1 MB, recommended: stops made-up words during pauses
 ./followspot examples/sample.md
 ```
 
@@ -81,6 +82,10 @@ Download any model from [the whisper.cpp model list](https://huggingface.co/gger
 
 If the latency shown in the status panel climbs past about a second, switch to a smaller model. Flags after `--` go straight to `whisper-server`, for example `./followspot script.md -- --no-gpu`.
 
+### Voice activity detection
+
+Whisper will transcribe *something* from silence or room noise ("you", "thanks for watching"), and those phantom words can nudge the highlight. `./followspot download vad` fetches whisper.cpp's [Silero VAD model](https://huggingface.co/ggml-org/whisper-vad) (under 1 MB). Once it's in `models/`, the launcher turns VAD on automatically, and whisper.cpp skips non-speech audio before transcribing it: 3 seconds of silence comes back empty in about 10 ms instead of as "you" in 300. Turn it off with `--no-vad`, or tune it by passing your own `--vad` flags after `--`.
+
 ## How it follows you
 
 ```
@@ -98,7 +103,7 @@ script ◄── highlight + scroll ◄── cursor ◄── fuzzy alignment �
 
 - **"Can't reach whisper server."** The page was opened without `./followspot` running, or on a different port.
 - **It doesn't move.** Check the level meter in the status panel. If it barely moves, pick the right microphone in Settings (**S**) or lower the silence gate. If "heard" text shows up but the highlight stays put, you may be reading a different part of the script: click the word you're on.
-- **It runs ahead during pauses.** Raise the silence gate, or lower or disable the coast speed.
+- **It runs ahead during pauses.** Make sure VAD is on (the launcher prints a `VAD:` line at startup). Then raise the silence gate, or lower or disable the coast speed.
 - **It lags behind.** Look at the latency readout. Use a smaller model, or shorten the listen window in Settings.
 
 ## Development

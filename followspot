@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Followspot launcher.
 #
-#   ./followspot [script.md] [-m model.bin] [-p port] [--no-open] [-- whisper-server flags]
-#   ./followspot download <name>     # e.g. small.en, medium.en, large-v3-turbo
+#   ./followspot [script.md] [-m model.bin] [-p port] [--no-open] [--no-vad] [-- whisper-server flags]
+#   ./followspot download <name>     # small.en, medium.en, large-v3-turbo, ... or vad
 #
 # Starts whisper.cpp's server on localhost, which also serves the prompter
 # page, then opens it in your browser.
@@ -12,8 +12,10 @@ cd "$(dirname "$0")"
 PORT="${FOLLOWSPOT_PORT:-8178}"
 MODEL="${FOLLOWSPOT_MODEL:-}"
 OPEN=1
+VAD=1
 SCRIPT=""
 EXTRA=()
+VAD_MODEL_NAME="silero-v6.2.0"
 
 usage() {
   sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
@@ -21,9 +23,14 @@ usage() {
 }
 
 if [[ "${1:-}" == "download" ]]; then
-  name="${2:?usage: ./followspot download <name>, e.g. small.en}"
+  name="${2:?usage: ./followspot download <name>, e.g. small.en or vad}"
   mkdir -p models
-  url="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${name}.bin"
+  if [[ "$name" == "vad" ]]; then
+    name="$VAD_MODEL_NAME"
+    url="https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-${name}.bin"
+  else
+    url="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${name}.bin"
+  fi
   echo "Downloading ${url}"
   curl -fL --progress-bar -o "models/ggml-${name}.bin.part" "$url"
   mv "models/ggml-${name}.bin.part" "models/ggml-${name}.bin"
@@ -36,6 +43,7 @@ while [[ $# -gt 0 ]]; do
     -m|--model) MODEL="$2"; shift 2 ;;
     -p|--port) PORT="$2"; shift 2 ;;
     --no-open) OPEN=0; shift ;;
+    --no-vad) VAD=0; shift ;;
     -h|--help) usage ;;
     --) shift; EXTRA=("$@"); break ;;
     -*) echo "Unknown option: $1" >&2; usage 1 ;;
@@ -80,6 +88,19 @@ if [[ -z "$MODEL" || ! -f "$MODEL" ]]; then
   exit 1
 fi
 
+# Voice activity detection: on whenever a Silero VAD model is in models/.
+# whisper.cpp then skips non-speech audio instead of transcribing it, which
+# stops Whisper inventing words ("you", "thanks for watching") during pauses
+# and room noise. Skipped if --no-vad, or if you pass your own --vad flags.
+VAD_ARGS=()
+VAD_FILE=""
+if [[ "$VAD" == 1 && " ${EXTRA[*]-} " != *" --vad "* ]]; then
+  for candidate in models/ggml-silero-*.bin; do
+    [[ -f "$candidate" ]] && VAD_FILE="$candidate"   # glob sorts, so the newest version wins
+  done
+  [[ -n "$VAD_FILE" ]] && VAD_ARGS=(--vad -vm "$VAD_FILE")
+fi
+
 # Link (not copy) the script so edits show up in the prompter live.
 if [[ -n "$SCRIPT" ]]; then
   if [[ ! -f "$SCRIPT" ]]; then echo "Script not found: $SCRIPT" >&2; exit 1; fi
@@ -88,6 +109,9 @@ fi
 
 URL="http://127.0.0.1:${PORT}/"
 echo "Model:  $MODEL"
+if [[ -n "$VAD_FILE" ]]; then echo "VAD:    $VAD_FILE"
+elif [[ "$VAD" == 1 ]]; then echo "VAD:    off (./followspot download vad to enable)"
+fi
 [[ -L public/current.md ]] && echo "Script: $(readlink public/current.md)"
 echo "Open:   $URL   (Ctrl+C to stop)"
 
@@ -108,4 +132,5 @@ exec whisper-server \
   -l en \
   -nt \
   -t "$(threads)" \
+  ${VAD_ARGS[@]+"${VAD_ARGS[@]}"} \
   ${EXTRA[@]+"${EXTRA[@]}"}

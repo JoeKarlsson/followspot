@@ -8,6 +8,7 @@ Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double
 ./followspot script.md                  # run it (opens the browser)
 ./followspot script.md -p 8179 --no-open -- --no-gpu   # alt port, flags after -- go to whisper-server
 ./followspot download base.en           # fetch a model into models/ (gitignored)
+./followspot download vad               # Silero VAD; auto-enabled when present (--no-vad to skip)
 npm run check                         # node --check on all JS + bash -n followspot
 npm test                              # unit tests (node:test, no deps)
 npm run e2e                           # needs a running ./followspot on 8178; macOS only (uses `say`)
@@ -34,7 +35,8 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - In the maintainer's shell, `node` is an nvm lazy-load function that fails silently in non-interactive shells. Use the absolute binary (`~/.nvm/versions/node/<v>/bin/node`) or put it on PATH first.
 - `public/current.md` is a symlink the launcher creates to the active script (gitignored). The page polls it every 2 s for live edits. A dropped file stops polling until reload.
 - `whisper-server --public` follows symlinks, which is what makes live editing work.
-- The GitHub macOS runner has no usable GPU. CI passes `-- --no-gpu`.
+- The GitHub macOS runner has no usable GPU. CI passes `-- --no-gpu`. Its Homebrew is older and only knows the formula as `whisper-cpp` (newer Homebrew calls it `whisper.cpp` but accepts both), so docs and CI use `whisper-cpp`.
+- The Bash tool's shell here is zsh: an unquoted `$args` string is not word-split. Script launcher tests in bash with arrays.
 - On macOS, headless Chrome's `--use-file-for-fake-audio-capture` delivers pure silence (checked with an AnalyserNode). `tools/record-demo.mjs` instead injects a `getUserMedia` replacement via `Page.addScriptToEvaluateOnNewDocument` that plays the WAV through a `MediaStreamDestination`.
 - The recorder worklet is routed through a zero-gain node to `destination` so engines that only process pulled nodes still call `process()`. Don't "clean up" that connection.
 - Headless Chrome (`--dump-dom`, `--screenshot`) is the quickest way to check the page renders without errors. `requestAnimationFrame` barely runs there, which is why scrolling snaps on load (`snap = true`) rather than easing.

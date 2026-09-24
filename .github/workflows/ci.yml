@@ -34,13 +34,17 @@ jobs:
           node-version: 22
       - name: Install whisper.cpp and ffmpeg
         run: brew install whisper-cpp ffmpeg
-      - name: Cache Whisper model
+      - name: Cache Whisper and VAD models
         uses: actions/cache@v4
         with:
-          path: models/ggml-base.en.bin
-          key: whisper-ggml-base.en-v1
-      - name: Download model
-        run: test -f models/ggml-base.en.bin || ./followspot download base.en
+          path: |
+            models/ggml-base.en.bin
+            models/ggml-silero-v6.2.0.bin
+          key: whisper-ggml-base.en-silero-v6.2.0-v1
+      - name: Download models
+        run: |
+          test -f models/ggml-base.en.bin || ./followspot download base.en
+          test -f models/ggml-silero-v6.2.0.bin || ./followspot download vad
       - name: Start Followspot server
         run: |
           ./followspot -m models/ggml-base.en.bin --no-open -- --no-gpu > server.log 2>&1 &
@@ -54,6 +58,13 @@ jobs:
         run: npm run e2e
       - name: Simulated read-through, skipping every 3rd sentence
         run: node tools/simulate.mjs examples/sample.md --skip 3
+      - name: VAD returns nothing for silence
+        run: |
+          grep -q "^VAD:    models/ggml-silero" server.log
+          ffmpeg -loglevel error -y -f lavfi -i anullsrc=r=16000:cl=mono -t 3 -c:a pcm_s16le silence.wav
+          out=$(curl -s http://127.0.0.1:8178/inference -F file=@silence.wav -F response_format=json)
+          echo "$out"
+          test "$out" = '{"text":""}'
       - name: Server log
         if: failure()
         run: cat server.log
