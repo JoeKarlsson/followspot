@@ -1,0 +1,6 @@
+# Commits git blame should skip (bulk, mechanical changes).
+# GitHub's blame view reads this file automatically. Locally, run once:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format the codebase with Biome
+438b9700bd26a01c53d42115e38f44d7b5393e80
