@@ -38,8 +38,10 @@ public/app.js            wiring: mic capture, listen loop, rendering, controls
 public/align.js          script parsing and speech-to-script alignment (pure)
 public/audio.js          decimator, ring buffer, RMS, WAV encoder (pure)
 public/recorder-worklet.js  AudioWorklet that forwards mic samples
+public/demo.md           demo script (first run, README GIF)
 test/                    node:test unit tests
 tools/simulate.mjs       say + whisper-server end-to-end read-through
+tools/record-demo.mjs    records docs/demo.gif through the real pipeline (headless Chrome)
 examples/                sample scripts
 ```
 

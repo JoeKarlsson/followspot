@@ -35,4 +35,6 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - `public/current.md` is a symlink the launcher creates to the active script (gitignored). The page polls it every 2 s for live edits. A dropped file stops polling until reload.
 - `whisper-server --public` follows symlinks, which is what makes live editing work.
 - The GitHub macOS runner has no usable GPU. CI passes `-- --no-gpu`.
+- On macOS, headless Chrome's `--use-file-for-fake-audio-capture` delivers pure silence (checked with an AnalyserNode). `tools/record-demo.mjs` instead injects a `getUserMedia` replacement via `Page.addScriptToEvaluateOnNewDocument` that plays the WAV through a `MediaStreamDestination`.
+- The recorder worklet is routed through a zero-gain node to `destination` so engines that only process pulled nodes still call `process()`. Don't "clean up" that connection.
 - Headless Chrome (`--dump-dom`, `--screenshot`) is the quickest way to check the page renders without errors. `requestAnimationFrame` barely runs there, which is why scrolling snaps on load (`snap = true`) rather than easing.

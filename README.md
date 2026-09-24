@@ -4,6 +4,10 @@ A voice-following teleprompter that runs in your browser and listens with a loca
 
 Your audio never leaves your machine. The page sends it to a whisper.cpp server bound to `127.0.0.1`, and that's the only place it goes.
 
+![Followspot tracking a spoken script: read words dim, the current word is highlighted, and the page scrolls to keep it on the reading line](docs/demo.gif)
+
+*Recorded with [`tools/record-demo.mjs`](tools/record-demo.mjs): real speech through the real pipeline and `medium` model, no faked scrolling. The top-left panel shows Whisper's latency and the last thing it heard.*
+
 ## Why another teleprompter?
 
 Most browser teleprompters that follow your voice use the browser's built-in speech recognition. In Chrome that means your audio goes to Google, and you can't choose the model. Hardware prompter apps that run on-device tend to ship a small Whisper model you can't swap out. This one lets you pick any whisper.cpp model, from `base.en` on a laptop to `large-v3-turbo` on a fast Mac, and it's built to keep going when the transcript is only mostly right.
@@ -23,7 +27,7 @@ Requirements: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-s
 
 ## Using it
 
-- **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page.
+- **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page. Run `./followspot` with no script and you get a short demo script to try.
 - **Move the mouse** to bring up the control bar: listen, text size, column width, top and bottom margins, reading line, mirror, fullscreen, and more settings. It hides itself (and the pointer) after a moment.
 - **Click any word** to jump there, for re-takes.
 - **On a beam-splitter prompter** (Elgato Prompter and similar), drag the window to the prompter's display, go fullscreen, and turn on Mirror if the text reads backward. The text column is centered on the lens. Use the top and bottom margins to keep the text in the part of the glass you read from, and move the reading line until the current line sits at lens height.
@@ -102,6 +106,7 @@ npm run check    # syntax-check every JS file and the launcher
 npm test         # unit tests for the matcher and audio helpers
 npm run e2e      # end to end: needs ./followspot running (macOS, uses `say`)
 node tools/simulate.mjs your-script.md --skip 4   # drop every 4th sentence, check it recovers
+npm run demo     # re-record docs/demo.gif (macOS, Chrome, ffmpeg; needs ./followspot running)
 ```
 
 `tools/simulate.mjs` has macOS `say` read a script, replays the audio through the running server in the same rolling windows the browser uses, and fails unless the cursor reaches the end. CI runs it on every push. See [CONTRIBUTING.md](CONTRIBUTING.md).
