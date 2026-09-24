@@ -9,6 +9,7 @@ Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double
 ./followspot script.md -p 8179 --no-open -- --no-gpu   # alt port, flags after -- go to whisper-server
 ./followspot download base.en           # fetch a model into models/ (gitignored)
 ./followspot download vad               # Silero VAD; auto-enabled when present (--no-vad to skip)
+npm run lint                          # Biome (lint + format check) + ShellCheck; npm run format to fix
 npm run check                         # node --check on all JS + bash -n followspot
 npm test                              # unit tests (node:test, no deps)
 npm run e2e                           # needs a running ./followspot on 8178; macOS only (uses `say`)
@@ -27,6 +28,7 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 
 - No build step, no runtime deps, no network calls except to the same-origin whisper server.
 - Put new logic in a DOM-free module with tests, not in `app.js`.
+- Run `npm run format` before committing; CI fails on unformatted code (`biome ci`). Biome is a dev dependency only: `public/` must never import from `node_modules`.
 - Any change to `align.js` needs a unit test for the case, plus an `e2e` / `--skip 3` run before and after.
 - Commit each verified change separately with a message that says why.
 

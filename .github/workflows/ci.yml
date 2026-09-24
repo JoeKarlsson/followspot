@@ -23,10 +23,25 @@ jobs:
       - run: npm run check
       - run: npm test
 
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Biome (lint + format check)
+        run: npx biome ci .
+      - name: ShellCheck (launcher)
+        run: shellcheck followspot
+
   e2e:
     name: End to end (whisper.cpp + macOS say)
     runs-on: macos-latest
-    needs: unit
+    needs: [unit, lint]
     # Runner speed varies ~10x (1 to 10+ min per read-through); cap it so a
     # slow or stuck runner fails instead of holding a PR open for hours.
     timeout-minutes: 30
