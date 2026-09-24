@@ -182,4 +182,4 @@ dialog h2 { margin: 0 0 12px; font-size: 18px; }
 dialog label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0; font-size: 14px; }
 dialog label.check { justify-content: flex-start; }
 dialog input[type="number"], dialog select { width: 150px; background: #222; color: var(--fg); border: 1px solid #444; border-radius: 6px; padding: 4px 6px; }
-dialog button { margin-top: 12px; width: 100%; padding: 8px; border-radius: 8px; border: 0; background: var(--now); color: #000; font-weight: 600; cursor: pointer; }
+#settings button { margin-top: 12px; width: 100%; padding: 8px; border-radius: 8px; border: 0; background: var(--now); color: #000; font-weight: 600; cursor: pointer; }

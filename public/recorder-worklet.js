@@ -3,7 +3,7 @@
 // The node's (silent) output feeds a muted gain in app.js so the graph pulls it.
 class Recorder extends AudioWorkletProcessor {
   process(inputs) {
-    const ch = inputs[0] && inputs[0][0];
+    const ch = inputs[0]?.[0];
     if (ch) this.port.postMessage(ch.slice(0));
     return true;
   }

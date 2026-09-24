@@ -11,8 +11,13 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "check": "for f in public/*.js tools/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done && bash -n followspot",
+    "lint": "biome check . && shellcheck followspot",
+    "format": "biome check --write .",
     "e2e": "node tools/simulate.mjs examples/sample.md",
     "demo": "node tools/record-demo.mjs",
     "start": "./followspot"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14"
   }
 }

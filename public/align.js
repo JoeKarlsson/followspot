@@ -63,16 +63,15 @@ export function parseScript(md) {
     const items = [];
     const cueRe = /\*\[([^\]]*)\]\*|\[([^\]]*)\]/g;
     let last = 0;
-    let m;
     const pushWords = (s) => {
       for (const raw of s.replace(/\*\*|__/g, "").replace(/[*_`]/g, "").split(/\s+/)) {
         if (raw) items.push({ type: "word", text: raw });
       }
     };
-    while ((m = cueRe.exec(joined))) {
+    for (const m of joined.matchAll(cueRe)) {
       pushWords(joined.slice(last, m.index));
       items.push({ type: "cue", text: (m[1] ?? m[2]).trim() });
-      last = cueRe.lastIndex;
+      last = m.index + m[0].length;
     }
     pushWords(joined.slice(last));
     if (items.length) paragraphs.push(items);
