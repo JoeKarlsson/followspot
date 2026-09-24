@@ -13,7 +13,8 @@
     "check": "for f in public/*.js tools/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done && bash -n followspot",
     "lint": "biome check . && shellcheck followspot",
     "format": "biome check --write .",
-    "e2e": "node tools/simulate.mjs examples/sample.md",
+    "e2e": "node tools/simulate.mjs examples/sample.md --audio test/fixtures/sample.wav --step 1 && node tools/simulate.mjs examples/sample.md --skip 3 --audio test/fixtures/sample-skip3.wav --step 1",
+    "fixtures": "node tools/simulate.mjs examples/sample.md --save-audio test/fixtures/sample.wav && node tools/simulate.mjs examples/sample.md --skip 3 --save-audio test/fixtures/sample-skip3.wav",
     "demo": "node tools/record-demo.mjs",
     "start": "./followspot"
   },

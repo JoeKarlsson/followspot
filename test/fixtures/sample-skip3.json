@@ -1,0 +1,5 @@
+{
+  "script": "examples/sample.md",
+  "skip": 3,
+  "spoken": "Hey, this is a quick test of the prompter. Read this paragraph out loud at your normal pace, and the highlighted word should follow along with you. It should keep up anyway, because it matches on the words around you instead of demanding every single one. If you stop talking, it stops too. When you pick back up, so does the script."
+}

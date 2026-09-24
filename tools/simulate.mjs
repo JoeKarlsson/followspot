@@ -6,8 +6,13 @@
 //
 // --skip N drops every Nth sentence from the reading, to check the prompter
 // recovers when you skip or ad-lib.
+//
+// Fixtures (no `say` needed, so this runs on Linux too):
+//   --save-audio f.wav   synthesize, write f.wav + f.json (the spoken text), exit
+//   --audio f.wav        replay f.wav instead of synthesizing; refuses to run
+//                        if f.json no longer matches the script (stale fixture)
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { align, buildTokens, parseScript, tokenizeHeard } from "../public/align.js";
@@ -21,7 +26,7 @@ const opt = (name, def) => {
 const file = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
 if (!file) {
   console.error(
-    "usage: node tools/simulate.mjs script.md [--rate 170] [--port 8178] [--skip N] [--step 0.5]",
+    "usage: node tools/simulate.mjs script.md [--rate 170] [--port 8178] [--skip N] [--step 0.5] [--audio f.wav | --save-audio f.wav]",
   );
   process.exit(1);
 }
@@ -44,6 +49,18 @@ if (skip) {
   spoken = sentences.filter((_, i) => (i + 1) % skip !== 0 || i === sentences.length - 1).join(" ");
 }
 
+// Minimal WAV reader: find the data chunk, read 16-bit mono PCM.
+function readWav(path) {
+  const buf = readFileSync(path);
+  let off = 12;
+  while (buf.toString("ascii", off, off + 4) !== "data") off += 8 + buf.readUInt32LE(off + 4);
+  const int16 = new Int16Array(buf.buffer, buf.byteOffset + off + 8, buf.readUInt32LE(off + 4) / 2);
+  return Float32Array.from(int16, (s) => s / 0x8000);
+}
+
+const audioIn = opt("audio");
+const audioOut = opt("save-audio");
+const sidecar = (wav) => wav.replace(/\.wav$/, ".json");
 const dir = mkdtempSync(join(tmpdir(), "followspot-sim-"));
 
 // say + ffmpeg -> 16 kHz mono float samples.
@@ -65,27 +82,39 @@ function synthesize() {
     "pcm_s16le",
     join(dir, "s.wav"),
   ]);
-  // Minimal WAV reader: find the data chunk, read 16-bit mono PCM.
-  const buf = readFileSync(join(dir, "s.wav"));
-  let off = 12;
-  while (buf.toString("ascii", off, off + 4) !== "data") off += 8 + buf.readUInt32LE(off + 4);
-  const int16 = new Int16Array(buf.buffer, buf.byteOffset + off + 8, buf.readUInt32LE(off + 4) / 2);
-  return Float32Array.from(int16, (s) => s / 0x8000);
+  return readWav(join(dir, "s.wav"));
 }
 
-// On fresh CI runners `say` sometimes writes an empty file (the speech
-// service isn't up yet), so retry before giving up with a clear message.
 let pcm = new Float32Array(0);
-for (let attempt = 1; attempt <= 3 && pcm.length < RATE; attempt++) {
-  if (attempt > 1) {
-    console.warn(`say produced no audio, retrying (${attempt}/3)`);
-    execFileSync("sleep", ["2"]);
+if (audioIn) {
+  // A fixture is only valid for the exact words it was recorded from.
+  const meta = JSON.parse(readFileSync(sidecar(audioIn), "utf8"));
+  if (meta.spoken !== spoken) {
+    console.error(`${audioIn} is stale: ${file} (skip ${skip}) no longer matches it. Run: npm run fixtures`);
+    process.exit(3);
   }
-  pcm = synthesize();
+  pcm = readWav(audioIn);
+} else {
+  // On fresh CI runners `say` sometimes writes an empty file (the speech
+  // service isn't up yet), so retry before giving up with a clear message.
+  for (let attempt = 1; attempt <= 3 && pcm.length < RATE; attempt++) {
+    if (attempt > 1) {
+      console.warn(`say produced no audio, retrying (${attempt}/3)`);
+      execFileSync("sleep", ["2"]);
+    }
+    pcm = synthesize();
+  }
+  if (pcm.length < RATE) {
+    console.error("say produced no audio after 3 attempts; is macOS speech synthesis available?");
+    process.exit(2);
+  }
 }
-if (pcm.length < RATE) {
-  console.error("say produced no audio after 3 attempts; is macOS speech synthesis available?");
-  process.exit(2);
+
+if (audioOut) {
+  writeFileSync(audioOut, encodeWav(pcm));
+  writeFileSync(sidecar(audioOut), `${JSON.stringify({ script: file, skip, spoken }, null, 2)}\n`);
+  console.log(`Wrote ${audioOut} (${(pcm.length / RATE).toFixed(1)}s) and ${sidecar(audioOut)}`);
+  process.exit(0);
 }
 
 let cursor = 0;
@@ -93,8 +122,12 @@ let moves = 0;
 let misses = 0;
 const latencies = [];
 const duration = pcm.length / RATE;
+const ordinal = (n) => {
+  const teen = n % 100 >= 11 && n % 100 <= 13;
+  return `${n}${teen ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th")}`;
+};
 console.log(
-  `${tokens.length} tokens, ${duration.toFixed(1)}s of audio${skip ? `, skipping every ${skip}th sentence` : ""}\n`,
+  `${tokens.length} tokens, ${duration.toFixed(1)}s of audio${skip ? `, skipping every ${ordinal(skip)} sentence` : ""}\n`,
 );
 
 for (let t = 1.5; t <= duration + STEP; t += STEP) {
