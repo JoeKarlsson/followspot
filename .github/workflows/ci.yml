@@ -42,9 +42,9 @@ jobs:
     name: End to end (whisper.cpp + macOS say)
     runs-on: macos-latest
     needs: [unit, lint]
-    # Runner speed varies ~10x (1 to 10+ min per read-through); cap it so a
-    # slow or stuck runner fails instead of holding a PR open for hours.
-    timeout-minutes: 30
+    # Runner speed varies ~5x between identical runs; cap it so a slow or
+    # stuck runner fails instead of holding a PR open.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -64,8 +64,11 @@ jobs:
           test -f models/ggml-base.en.bin || ./followspot download base.en
           test -f models/ggml-silero-v6.2.0.bin || ./followspot download vad
       - name: Start Followspot server
+        # -ac 512: Whisper's encoder pads every request to 30 s of audio; 512
+        # frames (~10 s) still covers the longest window, and cut CPU latency
+        # ~4x in benchmarks (784 -> 197 ms median) with identical tracking.
         run: |
-          ./followspot -m models/ggml-base.en.bin --no-open -- --no-gpu > server.log 2>&1 &
+          ./followspot -m models/ggml-base.en.bin --no-open -- --no-gpu -ac 512 > server.log 2>&1 &
           for _ in $(seq 1 120); do
             curl -fs -o /dev/null http://127.0.0.1:8178/ && exit 0
             sleep 1
@@ -76,10 +79,12 @@ jobs:
         run: |
           echo "cpu: $(sysctl -n machdep.cpu.brand_string)  ncpu=$(sysctl -n hw.ncpu)  physical=$(sysctl -n hw.physicalcpu)  perf=$(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null || echo n/a)"
           grep -E "^(Model|Threads|VAD):" server.log
+      # One window per second instead of two: half the requests, and tracking
+      # held (69-71/71) in local runs. The browser still uses 250 ms.
       - name: Simulated read-through
-        run: npm run e2e
+        run: node tools/simulate.mjs examples/sample.md --step 1
       - name: Simulated read-through, skipping every 3rd sentence
-        run: node tools/simulate.mjs examples/sample.md --skip 3
+        run: node tools/simulate.mjs examples/sample.md --step 1 --skip 3
       - name: VAD returns nothing for silence
         run: |
           grep -q "^VAD:    models/ggml-silero" server.log

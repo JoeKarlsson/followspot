@@ -108,7 +108,7 @@ if [[ -n "$SCRIPT" ]]; then
 fi
 
 URL="http://127.0.0.1:${PORT}/"
-THREADS="$(threads)"
+THREADS="${FOLLOWSPOT_THREADS:-$(threads)}"
 echo "Model:  $MODEL"
 echo "Threads: $THREADS"
 if [[ -n "$VAD_FILE" ]]; then echo "VAD:    $VAD_FILE"
