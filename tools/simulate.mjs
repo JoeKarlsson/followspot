@@ -11,7 +11,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { align, buildTokens, parseScript, tokenizeHeard } from "../public/align.js";
-import { RATE, encodeWav } from "../public/audio.js";
+import { encodeWav, RATE } from "../public/audio.js";
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -30,7 +30,10 @@ const skip = Number(opt("skip", 0));
 
 const paragraphs = parseScript(readFileSync(file, "utf8"));
 const tokens = buildTokens(paragraphs);
-const words = paragraphs.flat().filter((i) => i.type === "word").map((i) => i.text);
+const words = paragraphs
+  .flat()
+  .filter((i) => i.type === "word")
+  .map((i) => i.text);
 
 let spoken = words.join(" ");
 if (skip) {
@@ -41,8 +44,20 @@ if (skip) {
 
 const dir = mkdtempSync(join(tmpdir(), "followspot-sim-"));
 execFileSync("say", ["-r", opt("rate", "170"), "-o", join(dir, "s.aiff"), spoken]);
-execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-i", join(dir, "s.aiff"),
-  "-ar", String(RATE), "-ac", "1", "-c:a", "pcm_s16le", join(dir, "s.wav")]);
+execFileSync("ffmpeg", [
+  "-loglevel",
+  "error",
+  "-y",
+  "-i",
+  join(dir, "s.aiff"),
+  "-ar",
+  String(RATE),
+  "-ac",
+  "1",
+  "-c:a",
+  "pcm_s16le",
+  join(dir, "s.wav"),
+]);
 
 // Minimal WAV reader: find the data chunk, read 16-bit mono PCM.
 const buf = readFileSync(join(dir, "s.wav"));
@@ -55,7 +70,9 @@ let cursor = 0;
 let moves = 0;
 let misses = 0;
 const duration = pcm.length / RATE;
-console.log(`${tokens.length} tokens, ${duration.toFixed(1)}s of audio${skip ? `, skipping every ${skip}th sentence` : ""}\n`);
+console.log(
+  `${tokens.length} tokens, ${duration.toFixed(1)}s of audio${skip ? `, skipping every ${skip}th sentence` : ""}\n`,
+);
 
 for (let t = 1.5; t <= duration + STEP; t += STEP) {
   const end = Math.min(pcm.length, Math.floor(t * RATE));
@@ -78,9 +95,13 @@ for (let t = 1.5; t <= duration + STEP; t += STEP) {
     misses++;
   }
   const at = cursor < tokens.length ? words[tokens[cursor].word] : "(end)";
-  console.log(`${t.toFixed(1).padStart(5)}s  cursor ${String(cursor).padStart(3)}/${tokens.length}  next: ${at.padEnd(14)}  heard: ${text.trim().slice(-60)}`);
+  console.log(
+    `${t.toFixed(1).padStart(5)}s  cursor ${String(cursor).padStart(3)}/${tokens.length}  next: ${at.padEnd(14)}  heard: ${text.trim().slice(-60)}`,
+  );
 }
 
 const pct = Math.round((cursor / tokens.length) * 100);
-console.log(`\nFinished at ${cursor}/${tokens.length} tokens (${pct}%), ${moves} moves, ${misses} windows without a match.`);
+console.log(
+  `\nFinished at ${cursor}/${tokens.length} tokens (${pct}%), ${moves} moves, ${misses} windows without a match.`,
+);
 process.exit(cursor >= tokens.length - 2 ? 0 : 1);

@@ -1,5 +1,5 @@
 import { align, buildTokens, parseScript, tokenizeHeard } from "./align.js";
-import { RATE, createDecimator, createRing, encodeWav, rms } from "./audio.js";
+import { createDecimator, createRing, encodeWav, RATE, rms } from "./audio.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,7 +22,12 @@ const DEFAULT_SETTINGS = {
 
 function loadSettings() {
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("followspot.settings") || localStorage.getItem("prompter.settings") || "{}") };
+    return {
+      ...DEFAULT_SETTINGS,
+      ...JSON.parse(
+        localStorage.getItem("followspot.settings") || localStorage.getItem("prompter.settings") || "{}",
+      ),
+    };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -31,7 +36,9 @@ function loadSettings() {
 const settings = loadSettings();
 
 function saveSettings() {
-  try { localStorage.setItem("followspot.settings", JSON.stringify(settings)); } catch {}
+  try {
+    localStorage.setItem("followspot.settings", JSON.stringify(settings));
+  } catch {}
 }
 
 function applySettings() {
@@ -64,8 +71,8 @@ let paragraphs = [];
 let tokens = [];
 let wordEls = [];
 let paraStarts = []; // token index where each paragraph begins
-let cursor = 0;      // next unread token, confirmed by speech (or keys)
-let display = 0;     // what the screen shows; can coast ahead of cursor
+let cursor = 0; // next unread token, confirmed by speech (or keys)
+let display = 0; // what the screen shows; can coast ahead of cursor
 let scriptText = null;
 
 function render(md) {
@@ -143,7 +150,11 @@ async function fetchScript() {
 }
 
 function safeGet(key) {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 // ---------- display ----------
@@ -189,7 +200,8 @@ function frame(ts) {
   const w = wordEls[Math.min(currentWord(), wordEls.length - 1)];
   if (w) {
     // Center the current line on the reading line (your eye level at the lens).
-    const target = ($("stage").clientHeight * settings.readingLine) / 100 - (w.offsetTop + w.offsetHeight / 2);
+    const target =
+      ($("stage").clientHeight * settings.readingLine) / 100 - (w.offsetTop + w.offsetHeight / 2);
     scrollY = snap ? target : scrollY + (target - scrollY) * Math.min(1, dt * 6);
     snap = false;
     $("scroller").style.transform = `translate(-50%, ${scrollY}px)`;
@@ -268,7 +280,10 @@ async function populateMics() {
 function contextPrompt() {
   if (!tokens.length || cursor === 0) return "";
   const endWord = tokens[Math.min(cursor, tokens.length) - 1].word;
-  return wordEls.slice(Math.max(0, endWord - 30), endWord + 1).map((el) => el.textContent).join(" ");
+  return wordEls
+    .slice(Math.max(0, endWord - 30), endWord + 1)
+    .map((el) => el.textContent)
+    .join(" ");
 }
 
 // ---------- listen loop ----------
@@ -362,18 +377,34 @@ function jumpParagraph(dir) {
 document.addEventListener("keydown", (e) => {
   if ($("settings").open || e.target.tagName === "INPUT") return;
   const k = e.key;
-  if (k === " ") { e.preventDefault(); toggleListening(); }
-  else if (k === "ArrowRight") moveTo(Math.floor(display) + 1);
+  if (k === " ") {
+    e.preventDefault();
+    toggleListening();
+  } else if (k === "ArrowRight") moveTo(Math.floor(display) + 1);
   else if (k === "ArrowLeft") moveTo(Math.floor(display) - 1);
-  else if (k === "ArrowDown") { e.preventDefault(); jumpParagraph(1); }
-  else if (k === "ArrowUp") { e.preventDefault(); jumpParagraph(-1); }
-  else if (k === "r" || k === "R") moveTo(0);
-  else if (k === "m" || k === "M") { settings.mirror = !settings.mirror; applySettings(); }
-  else if (k === "+" || k === "=") { settings.fontSize += 4; applySettings(); }
-  else if (k === "-" || k === "_") { settings.fontSize = Math.max(20, settings.fontSize - 4); applySettings(); }
-  else if (k === "]") { settings.columnWidth = Math.min(100, settings.columnWidth + 4); applySettings(); }
-  else if (k === "[") { settings.columnWidth = Math.max(20, settings.columnWidth - 4); applySettings(); }
-  else if (k === "h" || k === "H") document.body.classList.toggle("hide-hud");
+  else if (k === "ArrowDown") {
+    e.preventDefault();
+    jumpParagraph(1);
+  } else if (k === "ArrowUp") {
+    e.preventDefault();
+    jumpParagraph(-1);
+  } else if (k === "r" || k === "R") moveTo(0);
+  else if (k === "m" || k === "M") {
+    settings.mirror = !settings.mirror;
+    applySettings();
+  } else if (k === "+" || k === "=") {
+    settings.fontSize += 4;
+    applySettings();
+  } else if (k === "-" || k === "_") {
+    settings.fontSize = Math.max(20, settings.fontSize - 4);
+    applySettings();
+  } else if (k === "]") {
+    settings.columnWidth = Math.min(100, settings.columnWidth + 4);
+    applySettings();
+  } else if (k === "[") {
+    settings.columnWidth = Math.max(20, settings.columnWidth - 4);
+    applySettings();
+  } else if (k === "h" || k === "H") document.body.classList.toggle("hide-hud");
   else if (k === "f" || k === "F") {
     if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen();
@@ -435,8 +466,12 @@ function showToolbar() {
 }
 
 window.addEventListener("mousemove", showToolbar);
-$("toolbar").addEventListener("mouseenter", () => { overToolbar = true; });
-$("toolbar").addEventListener("mouseleave", () => { overToolbar = false; });
+$("toolbar").addEventListener("mouseenter", () => {
+  overToolbar = true;
+});
+$("toolbar").addEventListener("mouseleave", () => {
+  overToolbar = false;
+});
 
 for (const el of document.querySelectorAll("#toolbar [data-setting]")) {
   el.addEventListener("input", () => {
@@ -451,7 +486,10 @@ for (const el of document.querySelectorAll("#toolbar [data-step]")) {
     applySettings();
   });
 }
-$("tb-listen").addEventListener("click", (e) => { e.currentTarget.blur(); toggleListening(); });
+$("tb-listen").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  toggleListening();
+});
 $("tb-mirror").addEventListener("click", (e) => {
   e.currentTarget.blur();
   settings.mirror = !settings.mirror;
@@ -462,10 +500,16 @@ $("tb-fullscreen").addEventListener("click", (e) => {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen();
 });
-$("tb-settings").addEventListener("click", (e) => { e.currentTarget.blur(); openSettings(); });
+$("tb-settings").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  openSettings();
+});
 
 // Drag and drop a script file.
-window.addEventListener("dragover", (e) => { e.preventDefault(); document.body.classList.add("dragging"); });
+window.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  document.body.classList.add("dragging");
+});
 window.addEventListener("dragleave", () => document.body.classList.remove("dragging"));
 window.addEventListener("drop", async (e) => {
   e.preventDefault();
@@ -473,7 +517,9 @@ window.addEventListener("drop", async (e) => {
   const file = e.dataTransfer.files[0];
   if (!file) return;
   const text = await file.text();
-  try { localStorage.setItem("followspot.script", text); } catch {}
+  try {
+    localStorage.setItem("followspot.script", text);
+  } catch {}
   dropped = true;
   scriptText = null;
   loadText(text);
@@ -485,5 +531,7 @@ applySettings();
 await fetchScript();
 setInterval(fetchScript, 2000); // picks up edits to the script file live
 setInterval(tick, 250);
-setInterval(() => { $("level").style.width = `${Math.min(100, level * 800)}%`; }, 50);
+setInterval(() => {
+  $("level").style.width = `${Math.min(100, level * 800)}%`;
+}, 50);
 requestAnimationFrame(frame);

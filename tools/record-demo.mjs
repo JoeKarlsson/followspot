@@ -33,26 +33,56 @@ if (!existsSync(CHROME)) throw new Error(`Chrome not found at ${CHROME}; set CHR
 //    first so the recording opens on a still frame.
 const dir = mkdtempSync(join(tmpdir(), "followspot-demo-"));
 const words = parseScript(readFileSync("public/demo.md", "utf8"))
-  .map((p) => p.filter((i) => i.type === "word").map((i) => i.text).join(" "))
+  .map((p) =>
+    p
+      .filter((i) => i.type === "word")
+      .map((i) => i.text)
+      .join(" "),
+  )
   .filter(Boolean)
   .join(" [[slnc 500]] ");
 execFileSync("say", ["-r", "165", "-o", join(dir, "s.aiff"), `[[slnc 1500]] ${words}`]);
 const wav = join(dir, "s.wav");
-execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-i", join(dir, "s.aiff"),
-  "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav]);
-const speechSec = Number(execFileSync("ffprobe", ["-v", "error", "-show_entries", "format=duration",
-  "-of", "csv=p=0", wav]).toString());
+execFileSync("ffmpeg", [
+  "-loglevel",
+  "error",
+  "-y",
+  "-i",
+  join(dir, "s.aiff"),
+  "-ar",
+  "16000",
+  "-ac",
+  "1",
+  "-c:a",
+  "pcm_s16le",
+  wav,
+]);
+const speechSec = Number(
+  execFileSync("ffprobe", [
+    "-v",
+    "error",
+    "-show_entries",
+    "format=duration",
+    "-of",
+    "csv=p=0",
+    wav,
+  ]).toString(),
+);
 const seconds = Number(opt("seconds", Math.ceil(speechSec + 2.5)));
 
 // 2. Headless Chrome. The microphone is replaced in-page (see fakeMic).
-const chrome = spawn(CHROME, [
-  "--headless=new",
-  `--remote-debugging-port=9333`,
-  `--user-data-dir=${join(dir, "profile")}`,
-  `--window-size=${WIDTH},${HEIGHT}`,
-  "--autoplay-policy=no-user-gesture-required",
-  "about:blank",
-], { stdio: "ignore" });
+const chrome = spawn(
+  CHROME,
+  [
+    "--headless=new",
+    `--remote-debugging-port=9333`,
+    `--user-data-dir=${join(dir, "profile")}`,
+    `--window-size=${WIDTH},${HEIGHT}`,
+    "--autoplay-policy=no-user-gesture-required",
+    "about:blank",
+  ],
+  { stdio: "ignore" },
+);
 
 // Runs before the page's own scripts: getUserMedia returns a live stream
 // that plays the speech WAV once, starting when the app opens the "mic".
@@ -85,7 +115,10 @@ try {
   if (!target) throw new Error("Chrome's debugging port never came up");
 
   ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
+  await new Promise((r, j) => {
+    ws.onopen = r;
+    ws.onerror = j;
+  });
   let id = 0;
   const pending = new Map();
   ws.onmessage = (e) => {
@@ -96,10 +129,11 @@ try {
       msg.error ? rej(new Error(msg.error.message)) : res(msg.result);
     }
   };
-  const send = (method, params = {}) => new Promise((res, rej) => {
-    pending.set(++id, { resolve: res, reject: rej });
-    ws.send(JSON.stringify({ id, method, params }));
-  });
+  const send = (method, params = {}) =>
+    new Promise((res, rej) => {
+      pending.set(++id, { resolve: res, reject: rej });
+      ws.send(JSON.stringify({ id, method, params }));
+    });
 
   // Demo-friendly settings, then load the demo script.
   const url = `http://127.0.0.1:${port}/?script=demo.md`;
@@ -116,7 +150,13 @@ try {
 
   // Space starts listening; the fake mic starts playing when capture opens.
   for (const type of ["keyDown", "keyUp"]) {
-    await send("Input.dispatchKeyEvent", { type, key: " ", code: "Space", windowsVirtualKeyCode: 32, text: type === "keyDown" ? " " : undefined });
+    await send("Input.dispatchKeyEvent", {
+      type,
+      key: " ",
+      code: "Space",
+      windowsVirtualKeyCode: 32,
+      text: type === "keyDown" ? " " : undefined,
+    });
   }
 
   // 3. Capture frames at a steady rate.
@@ -137,11 +177,34 @@ try {
   // 4. Two-pass palette GIF: much sharper text than ffmpeg's default palette.
   mkdirSync(resolve(out, ".."), { recursive: true });
   const filters = `fps=${FPS},scale=800:-1:flags=lanczos`;
-  execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-framerate", String(FPS), "-i", join(frames, "%05d.png"),
-    "-vf", `${filters},palettegen=max_colors=48:stats_mode=diff`, join(dir, "palette.png")]);
-  execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-framerate", String(FPS), "-i", join(frames, "%05d.png"),
-    "-i", join(dir, "palette.png"), "-lavfi", `${filters} [x]; [x][1:v] paletteuse=dither=none:diff_mode=rectangle`,
-    "-loop", "0", out]);
+  execFileSync("ffmpeg", [
+    "-loglevel",
+    "error",
+    "-y",
+    "-framerate",
+    String(FPS),
+    "-i",
+    join(frames, "%05d.png"),
+    "-vf",
+    `${filters},palettegen=max_colors=48:stats_mode=diff`,
+    join(dir, "palette.png"),
+  ]);
+  execFileSync("ffmpeg", [
+    "-loglevel",
+    "error",
+    "-y",
+    "-framerate",
+    String(FPS),
+    "-i",
+    join(frames, "%05d.png"),
+    "-i",
+    join(dir, "palette.png"),
+    "-lavfi",
+    `${filters} [x]; [x][1:v] paletteuse=dither=none:diff_mode=rectangle`,
+    "-loop",
+    "0",
+    out,
+  ]);
   console.log(`Wrote ${out} (${seconds}s, ${total} frames)`);
 } finally {
   ws?.close();
