@@ -12,7 +12,8 @@ Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double
 npm run lint                          # Biome (lint + format check) + ShellCheck; npm run format to fix
 npm run check                         # node --check on all JS + bash -n followspot
 npm test                              # unit tests (node:test, no deps)
-npm run e2e                           # needs a running ./followspot on 8178; macOS only (uses `say`)
+npm run e2e                           # fixture replay vs a running ./followspot on 8178 (any OS)
+npm run fixtures                      # re-record test/fixtures after editing examples/sample.md (macOS say)
 node tools/simulate.mjs s.md --port 8179 --skip 3
 ```
 
@@ -38,7 +39,8 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - `public/current.md` is a symlink the launcher creates to the active script (gitignored). The page polls it every 2 s for live edits. A dropped file stops polling until reload.
 - `whisper-server --public` follows symlinks, which is what makes live editing work.
 - CI speed: Whisper's encoder pads every request to 30 s, so request cost barely depends on clip length. CI passes `-ac 512` (4x faster on CPU) and runs the simulator with `--step 1` (half the requests). The runner is a 3-core virtual M1 whose speed still varies ~5x between runs; the simulator prints median/p90/max latency so slow runs are diagnosable. Thread count was checked and is not the cause (launcher already uses 3).
-- `say` occasionally writes an empty file on a fresh runner; `tools/simulate.mjs` retries 3 times and exits 2 with a clear message.
+- `say` occasionally writes an empty file on a fresh runner; `tools/simulate.mjs` retries 3 times and exits 2 with a clear message. PR CI avoids `say` entirely: the required e2e runs on Linux from `test/fixtures` (built whisper-server, cached per CPU-flags hash). macOS runs only after merge, as a non-required smoke test.
+- Editing `examples/sample.md` makes the fixtures stale; the simulator exits 3 until you run `npm run fixtures` and commit the result.
 - The GitHub macOS runner has no usable GPU. CI passes `-- --no-gpu`. Its Homebrew is older and only knows the formula as `whisper-cpp` (newer Homebrew calls it `whisper.cpp` but accepts both), so docs and CI use `whisper-cpp`.
 - The Bash tool's shell here is zsh: an unquoted `$args` string is not word-split. Script launcher tests in bash with arrays.
 - On macOS, headless Chrome's `--use-file-for-fake-audio-capture` delivers pure silence (checked with an AnalyserNode). `tools/record-demo.mjs` instead injects a `getUserMedia` replacement via `Page.addScriptToEvaluateOnNewDocument` that plays the WAV through a `MediaStreamDestination`.

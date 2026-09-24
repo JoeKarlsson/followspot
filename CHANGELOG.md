@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- A short final phrase after a pause (e.g. "the script.") now finishes the script instead of leaving the highlight two words short.
+
+### Changed
+
+- Linux is now tested: CI builds whisper-server from source and runs the end-to-end check on Ubuntu for every pull request. The README has the build steps.
+- The end-to-end check replays recorded speech fixtures (`npm run e2e`, any OS) instead of needing macOS `say`; `npm run fixtures` re-records them.
+- `FOLLOWSPOT_THREADS` overrides the launcher's thread count, and it prints the value at startup.
+
 ## 0.1.0 (2026-09-24)
 
 ### Added

@@ -17,7 +17,7 @@ Most browser teleprompters that follow your voice use the browser's built-in spe
 ## Quick start
 
 ```bash
-brew install whisper-cpp          # macOS. On Linux, build whisper.cpp and put whisper-server on PATH.
+brew install whisper-cpp          # macOS (Linux: see below)
 git clone https://github.com/JoeKarlsson/followspot.git && cd followspot
 ./followspot download small.en      # about 470 MB, see "Models"
 ./followspot download vad           # under 1 MB, recommended: stops made-up words during pauses
@@ -27,6 +27,15 @@ git clone https://github.com/JoeKarlsson/followspot.git && cd followspot
 That starts the whisper server (which also serves the page) and opens `http://127.0.0.1:8178/`. Press **Space**, allow the microphone, and start reading.
 
 Requirements: [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`whisper-server`), `curl`, and a current browser with AudioWorklet support (Chrome, Firefox, and Safari all have it). Node 20+ is only needed to run the tests.
+
+**On Linux,** build `whisper-server` from source (this is what CI does on every pull request), then use `./followspot` as above:
+
+```bash
+git clone --depth 1 --branch v1.9.4 https://github.com/ggml-org/whisper.cpp
+cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF
+cmake --build whisper.cpp/build -j --target whisper-server
+sudo cp whisper.cpp/build/bin/whisper-server /usr/local/bin/
+```
 
 ## Using it
 
@@ -117,12 +126,13 @@ npm install      # dev tooling (Biome); nothing in public/ depends on it
 npm run lint     # Biome lint + format check, ShellCheck on the launcher (npm run format fixes)
 npm run check    # syntax-check every JS file and the launcher
 npm test         # unit tests for the matcher and audio helpers
-npm run e2e      # end to end: needs ./followspot running (macOS, uses `say`)
-node tools/simulate.mjs your-script.md --skip 4   # drop every 4th sentence, check it recovers
+npm run e2e      # end to end against a running ./followspot, from recorded fixtures (any OS)
+npm run fixtures # re-record test/fixtures/ after editing examples/sample.md (macOS, uses `say`)
+node tools/simulate.mjs your-script.md --skip 4   # live `say` read of any script, dropping every 4th sentence
 npm run demo     # re-record docs/demo.gif (macOS, Chrome, ffmpeg; needs ./followspot running)
 ```
 
-`tools/simulate.mjs` has macOS `say` read a script, replays the audio through the running server in the same rolling windows the browser uses, and fails unless the cursor reaches the end. CI runs it on every push. See [CONTRIBUTING.md](CONTRIBUTING.md).
+`tools/simulate.mjs` replays speech through the running server in the same rolling windows the browser uses, and fails unless the cursor reaches the end. The speech is either live macOS `say` or a recorded fixture; each fixture carries the exact text it was recorded from, and the simulator refuses a stale one. CI runs the fixtures on Linux for every pull request, and a live `say` run on macOS after each merge. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 No build step and no runtime dependencies: `public/` is plain ES modules served as-is.
 
