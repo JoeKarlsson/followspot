@@ -12,8 +12,8 @@ Thanks for helping. This is a small project with a few firm constraints, so a qu
 
 ```bash
 brew install whisper.cpp ffmpeg     # macOS; ffmpeg is only for tools/simulate.mjs
-./prompter download base.en
-./prompter examples/sample.md
+./followspot download base.en
+./followspot examples/sample.md
 ```
 
 ## Before you open a pull request
@@ -21,7 +21,7 @@ brew install whisper.cpp ffmpeg     # macOS; ffmpeg is only for tools/simulate.m
 ```bash
 npm run check
 npm test
-npm run e2e        # with ./prompter running
+npm run e2e        # with ./followspot running
 ```
 
 - **If you change matching** (`align.js`), add a unit test for the case you're fixing. Also run the simulator on a longer script, straight and with `--skip 3`, and put the before/after "Finished at" lines in the PR description.
@@ -31,7 +31,7 @@ npm run e2e        # with ./prompter running
 ## Project layout
 
 ```
-prompter                 launcher: picks a model, links the script, starts whisper-server
+followspot               launcher: picks a model, links the script, starts whisper-server
 public/index.html        page markup (toolbar, settings dialog)
 public/style.css         styles; layout driven by CSS variables set from settings
 public/app.js            wiring: mic capture, listen loop, rendering, controls

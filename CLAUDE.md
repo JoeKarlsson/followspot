@@ -1,16 +1,16 @@
-# Whisper Prompter
+# Followspot
 
 Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double duty: it serves `public/` as static files and transcribes audio at `/inference`, so the page and the model share one origin and there's no CORS and no second process.
 
 ## Commands
 
 ```bash
-./prompter script.md                  # run it (opens the browser)
-./prompter script.md -p 8179 --no-open -- --no-gpu   # alt port, flags after -- go to whisper-server
-./prompter download base.en           # fetch a model into models/ (gitignored)
-npm run check                         # node --check on all JS + bash -n prompter
+./followspot script.md                  # run it (opens the browser)
+./followspot script.md -p 8179 --no-open -- --no-gpu   # alt port, flags after -- go to whisper-server
+./followspot download base.en           # fetch a model into models/ (gitignored)
+npm run check                         # node --check on all JS + bash -n followspot
 npm test                              # unit tests (node:test, no deps)
-npm run e2e                           # needs a running ./prompter on 8178; macOS only (uses `say`)
+npm run e2e                           # needs a running ./followspot on 8178; macOS only (uses `say`)
 node tools/simulate.mjs s.md --port 8179 --skip 3
 ```
 

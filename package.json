@@ -1,5 +1,5 @@
 {
-  "name": "whisper-prompter",
+  "name": "followspot",
   "version": "0.1.0",
   "description": "A voice-following browser teleprompter powered by a local whisper.cpp model.",
   "private": true,
@@ -10,8 +10,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "for f in public/*.js tools/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done && bash -n prompter",
+    "check": "for f in public/*.js tools/*.mjs test/*.mjs; do node --check \"$f\" || exit 1; done && bash -n followspot",
     "e2e": "node tools/simulate.mjs examples/sample.md",
-    "start": "./prompter"
+    "start": "./followspot"
   }
 }

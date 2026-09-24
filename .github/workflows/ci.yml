@@ -40,10 +40,10 @@ jobs:
           path: models/ggml-base.en.bin
           key: whisper-ggml-base.en-v1
       - name: Download model
-        run: test -f models/ggml-base.en.bin || ./prompter download base.en
-      - name: Start prompter server
+        run: test -f models/ggml-base.en.bin || ./followspot download base.en
+      - name: Start Followspot server
         run: |
-          ./prompter -m models/ggml-base.en.bin --no-open -- --no-gpu > server.log 2>&1 &
+          ./followspot -m models/ggml-base.en.bin --no-open -- --no-gpu > server.log 2>&1 &
           for _ in $(seq 1 120); do
             curl -fs -o /dev/null http://127.0.0.1:8178/ && exit 0
             sleep 1

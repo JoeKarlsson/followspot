@@ -11,5 +11,5 @@
 - Hover control bar: text size, column width, top and bottom margins, reading line, mirror, and fullscreen.
 - Click any word to jump there.
 - Markdown scripts with ignored header and footer sections and dimmed stage directions; live reload on save; drag and drop.
-- `./prompter` launcher with model discovery, `download` subcommand, and passthrough flags for whisper-server. Works on macOS and Linux.
+- `./followspot` launcher with model discovery, `download` subcommand, and passthrough flags for whisper-server. Works on macOS and Linux.
 - Unit tests, a `say`-based end-to-end simulator, and GitHub Actions CI.

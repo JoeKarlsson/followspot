@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Whisper Prompter launcher.
+# Followspot launcher.
 #
-#   ./prompter [script.md] [-m model.bin] [-p port] [--no-open] [-- whisper-server flags]
-#   ./prompter download <name>     # e.g. small.en, medium.en, large-v3-turbo
+#   ./followspot [script.md] [-m model.bin] [-p port] [--no-open] [-- whisper-server flags]
+#   ./followspot download <name>     # e.g. small.en, medium.en, large-v3-turbo
 #
 # Starts whisper.cpp's server on localhost, which also serves the prompter
 # page, then opens it in your browser.
 set -euo pipefail
 
 cd "$(dirname "$0")"
-PORT="${PROMPTER_PORT:-8178}"
-MODEL="${PROMPTER_MODEL:-}"
+PORT="${FOLLOWSPOT_PORT:-8178}"
+MODEL="${FOLLOWSPOT_MODEL:-}"
 OPEN=1
 SCRIPT=""
 EXTRA=()
@@ -21,7 +21,7 @@ usage() {
 }
 
 if [[ "${1:-}" == "download" ]]; then
-  name="${2:?usage: ./prompter download <name>, e.g. small.en}"
+  name="${2:?usage: ./followspot download <name>, e.g. small.en}"
   mkdir -p models
   url="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${name}.bin"
   echo "Downloading ${url}"
@@ -64,7 +64,7 @@ threads() {
     || echo 4
 }
 
-# Model: -m / PROMPTER_MODEL, else the best one in models/, else Screen
+# Model: -m / FOLLOWSPOT_MODEL, else the best one in models/, else Screen
 # Studio's copy of medium if it's on this Mac.
 if [[ -z "$MODEL" ]]; then
   for candidate in \
@@ -75,7 +75,7 @@ if [[ -z "$MODEL" ]]; then
   done
 fi
 if [[ -z "$MODEL" || ! -f "$MODEL" ]]; then
-  echo "No Whisper model found. Get one with: ./prompter download small.en" >&2
+  echo "No Whisper model found. Get one with: ./followspot download small.en" >&2
   exit 1
 fi
 

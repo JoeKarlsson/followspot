@@ -39,7 +39,7 @@ if (skip) {
   spoken = sentences.filter((_, i) => (i + 1) % skip !== 0 || i === sentences.length - 1).join(" ");
 }
 
-const dir = mkdtempSync(join(tmpdir(), "prompter-sim-"));
+const dir = mkdtempSync(join(tmpdir(), "followspot-sim-"));
 execFileSync("say", ["-r", opt("rate", "170"), "-o", join(dir, "s.aiff"), spoken]);
 execFileSync("ffmpeg", ["-loglevel", "error", "-y", "-i", join(dir, "s.aiff"),
   "-ar", String(RATE), "-ac", "1", "-c:a", "pcm_s16le", join(dir, "s.wav")]);

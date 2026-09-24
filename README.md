@@ -1,4 +1,4 @@
-# Whisper Prompter
+# Followspot
 
 A voice-following teleprompter that runs in your browser and listens with a local [whisper.cpp](https://github.com/ggml-org/whisper.cpp) model. Read your script out loud and the highlight follows you. Skip a sentence, flub a word, or ad-lib a little and it keeps going. Stop talking and it stops too.
 
@@ -12,9 +12,9 @@ Most browser teleprompters that follow your voice use the browser's built-in spe
 
 ```bash
 brew install whisper.cpp          # macOS. On Linux, build whisper.cpp and put whisper-server on PATH.
-git clone <this repo> && cd whisper-prompter
-./prompter download small.en      # about 470 MB, see "Models"
-./prompter examples/sample.md
+git clone <this repo> && cd followspot
+./followspot download small.en      # about 470 MB, see "Models"
+./followspot examples/sample.md
 ```
 
 That starts the whisper server (which also serves the page) and opens `http://127.0.0.1:8178/`. Press **Space**, allow the microphone, and start reading.
@@ -58,13 +58,13 @@ See [`examples/sample.md`](examples/sample.md).
 
 ## Models
 
-`./prompter` uses the first model it finds:
+`./followspot` uses the first model it finds:
 
-1. `-m path/to/model.bin` or the `PROMPTER_MODEL` environment variable
+1. `-m path/to/model.bin` or the `FOLLOWSPOT_MODEL` environment variable
 2. `models/ggml-{large-v3-turbo,medium.en,medium,small.en,base.en}.bin`, in that order
 3. Screen Studio's bundled `ggml-medium.bin`, if you have Screen Studio installed on macOS
 
-Download any model from [the whisper.cpp model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main) with `./prompter download <name>`.
+Download any model from [the whisper.cpp model list](https://huggingface.co/ggerganov/whisper.cpp/tree/main) with `./followspot download <name>`.
 
 | Model | Size | Notes |
 |---|---|---|
@@ -73,7 +73,7 @@ Download any model from [the whisper.cpp model list](https://huggingface.co/gger
 | `medium.en` | 1.5 GB | More forgiving with names and mumbling. About 0.3 s per 3.5 s window on an M5 Max. |
 | `large-v3-turbo` | 1.6 GB | Best accuracy if your machine keeps up. |
 
-If the latency shown in the status panel climbs past about a second, switch to a smaller model. Flags after `--` go straight to `whisper-server`, for example `./prompter script.md -- --no-gpu`.
+If the latency shown in the status panel climbs past about a second, switch to a smaller model. Flags after `--` go straight to `whisper-server`, for example `./followspot script.md -- --no-gpu`.
 
 ## How it follows you
 
@@ -90,7 +90,7 @@ script ◄── highlight + scroll ◄── cursor ◄── fuzzy alignment �
 
 ## Troubleshooting
 
-- **"Can't reach whisper server."** The page was opened without `./prompter` running, or on a different port.
+- **"Can't reach whisper server."** The page was opened without `./followspot` running, or on a different port.
 - **It doesn't move.** Check the level meter in the status panel. If it barely moves, pick the right microphone in Settings (**S**) or lower the silence gate. If "heard" text shows up but the highlight stays put, you may be reading a different part of the script: click the word you're on.
 - **It runs ahead during pauses.** Raise the silence gate, or lower or disable the coast speed.
 - **It lags behind.** Look at the latency readout. Use a smaller model, or shorten the listen window in Settings.
@@ -100,7 +100,7 @@ script ◄── highlight + scroll ◄── cursor ◄── fuzzy alignment �
 ```bash
 npm run check    # syntax-check every JS file and the launcher
 npm test         # unit tests for the matcher and audio helpers
-npm run e2e      # end to end: needs ./prompter running (macOS, uses `say`)
+npm run e2e      # end to end: needs ./followspot running (macOS, uses `say`)
 node tools/simulate.mjs your-script.md --skip 4   # drop every 4th sentence, check it recovers
 ```
 

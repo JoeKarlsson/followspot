@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS = {
 
 function loadSettings() {
   try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("prompter.settings") || "{}") };
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem("followspot.settings") || localStorage.getItem("prompter.settings") || "{}") };
   } catch {
     return { ...DEFAULT_SETTINGS };
   }
@@ -31,7 +31,7 @@ function loadSettings() {
 const settings = loadSettings();
 
 function saveSettings() {
-  try { localStorage.setItem("prompter.settings", JSON.stringify(settings)); } catch {}
+  try { localStorage.setItem("followspot.settings", JSON.stringify(settings)); } catch {}
 }
 
 function applySettings() {
@@ -121,7 +121,7 @@ async function fetchScript() {
     if (res.ok) return loadText(await res.text());
   } catch {}
   if (scriptText === null) {
-    const saved = safeGet("prompter.script");
+    const saved = safeGet("followspot.script") ?? safeGet("prompter.script");
     if (saved) loadText(saved);
     else $("drop").hidden = false;
   }
@@ -454,7 +454,7 @@ window.addEventListener("drop", async (e) => {
   const file = e.dataTransfer.files[0];
   if (!file) return;
   const text = await file.text();
-  try { localStorage.setItem("prompter.script", text); } catch {}
+  try { localStorage.setItem("followspot.script", text); } catch {}
   dropped = true;
   scriptText = null;
   loadText(text);
