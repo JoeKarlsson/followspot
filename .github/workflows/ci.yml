@@ -72,6 +72,10 @@ jobs:
           done
           cat server.log
           exit 1
+      - name: Runner info
+        run: |
+          echo "cpu: $(sysctl -n machdep.cpu.brand_string)  ncpu=$(sysctl -n hw.ncpu)  physical=$(sysctl -n hw.physicalcpu)  perf=$(sysctl -n hw.perflevel0.physicalcpu 2>/dev/null || echo n/a)"
+          grep -E "^(Model|Threads|VAD):" server.log
       - name: Simulated read-through
         run: npm run e2e
       - name: Simulated read-through, skipping every 3rd sentence

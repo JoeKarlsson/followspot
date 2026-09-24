@@ -69,6 +69,7 @@ const pcm = Float32Array.from(int16, (s) => s / 0x8000);
 let cursor = 0;
 let moves = 0;
 let misses = 0;
+const latencies = [];
 const duration = pcm.length / RATE;
 console.log(
   `${tokens.length} tokens, ${duration.toFixed(1)}s of audio${skip ? `, skipping every ${skip}th sentence` : ""}\n`,
@@ -85,8 +86,10 @@ for (let t = 1.5; t <= duration + STEP; t += STEP) {
     const endWord = tokens[cursor - 1].word;
     form.append("prompt", words.slice(Math.max(0, endWord - 30), endWord + 1).join(" "));
   }
+  const t0 = performance.now();
   const res = await fetch(`http://127.0.0.1:${port}/inference`, { method: "POST", body: form });
   const { text = "" } = await res.json();
+  latencies.push(performance.now() - t0);
   const r = align(tokens, cursor, tokenizeHeard(text));
   if (r && (r.pos >= cursor || r.matches >= 4)) {
     if (r.pos !== cursor) moves++;
@@ -101,7 +104,15 @@ for (let t = 1.5; t <= duration + STEP; t += STEP) {
 }
 
 const pct = Math.round((cursor / tokens.length) * 100);
+// Whisper latency per window. The browser can only keep up if this stays
+// well under its 250 ms tick plus the window length; it's also the first
+// number to check when CI is slow.
+const sorted = [...latencies].sort((a, b) => a - b);
+const pctile = (p) => Math.round(sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]);
 console.log(
-  `\nFinished at ${cursor}/${tokens.length} tokens (${pct}%), ${moves} moves, ${misses} windows without a match.`,
+  `\nWhisper latency per window: median ${pctile(0.5)} ms, p90 ${pctile(0.9)} ms, max ${pctile(1)} ms (${sorted.length} requests)`,
+);
+console.log(
+  `Finished at ${cursor}/${tokens.length} tokens (${pct}%), ${moves} moves, ${misses} windows without a match.`,
 );
 process.exit(cursor >= tokens.length - 2 ? 0 : 1);
