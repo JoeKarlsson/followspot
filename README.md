@@ -82,6 +82,10 @@ Download any model from [the whisper.cpp model list](https://huggingface.co/gger
 
 If the latency shown in the status panel climbs past about a second, switch to a smaller model. Flags after `--` go straight to `whisper-server`, for example `./followspot script.md -- --no-gpu`.
 
+**Speed tip for slower machines:** Whisper pads every request to 30 seconds of audio, even though Followspot only sends a few seconds. `./followspot script.md -- -ac 512` limits it to about 10 seconds, which still covers the longest listen window. In benchmarks that cut CPU latency about 4x (784 to 197 ms per request on `base.en`) and GPU latency about 40% on `medium`, with the same tracking accuracy. It isn't the default yet because it occasionally produced slower worst-case requests in testing.
+
+`FOLLOWSPOT_THREADS=N` overrides the thread count the launcher passes to whisper-server (it prints the value it uses at startup).
+
 ### Voice activity detection
 
 Whisper will transcribe *something* from silence or room noise ("you", "thanks for watching"), and those phantom words can nudge the highlight. `./followspot download vad` fetches whisper.cpp's [Silero VAD model](https://huggingface.co/ggml-org/whisper-vad) (under 1 MB). Once it's in `models/`, the launcher turns VAD on automatically, and whisper.cpp skips non-speech audio before transcribing it: 3 seconds of silence comes back empty in about 10 ms instead of as "you" in 300. Turn it off with `--no-vad`, or tune it by passing your own `--vad` flags after `--`.

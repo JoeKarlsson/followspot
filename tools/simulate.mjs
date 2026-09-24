@@ -20,11 +20,13 @@ const opt = (name, def) => {
 };
 const file = args.find((a, i) => !a.startsWith("--") && !args[i - 1]?.startsWith("--"));
 if (!file) {
-  console.error("usage: node tools/simulate.mjs script.md [--rate 170] [--port 8178] [--skip N]");
+  console.error(
+    "usage: node tools/simulate.mjs script.md [--rate 170] [--port 8178] [--skip N] [--step 0.5]",
+  );
   process.exit(1);
 }
 const WINDOW = Number(opt("window", 3.5));
-const STEP = 0.5;
+const STEP = Number(opt("step", 0.5)); // seconds between windows; the browser uses 0.25
 const port = opt("port", "8178");
 const skip = Number(opt("skip", 0));
 
@@ -46,7 +48,9 @@ const dir = mkdtempSync(join(tmpdir(), "followspot-sim-"));
 
 // say + ffmpeg -> 16 kHz mono float samples.
 function synthesize() {
-  execFileSync("say", ["-r", opt("rate", "170"), "-o", join(dir, "s.aiff"), spoken]);
+  // Trailing pause: real speakers don't stop dead, and Whisper tends to drop
+  // a word that's cut off at the very end of a clip.
+  execFileSync("say", ["-r", opt("rate", "170"), "-o", join(dir, "s.aiff"), `${spoken} [[slnc 1000]]`]);
   execFileSync("ffmpeg", [
     "-loglevel",
     "error",
