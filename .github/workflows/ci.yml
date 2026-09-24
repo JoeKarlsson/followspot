@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: 22
       - name: Install whisper.cpp and ffmpeg
-        run: brew install whisper.cpp ffmpeg
+        run: brew install whisper-cpp ffmpeg
       - name: Cache Whisper model
         uses: actions/cache@v4
         with:

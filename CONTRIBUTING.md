@@ -11,7 +11,7 @@ Thanks for helping. This is a small project with a few firm constraints, so a qu
 ## Setup
 
 ```bash
-brew install whisper.cpp ffmpeg     # macOS; ffmpeg is only for tools/simulate.mjs
+brew install whisper-cpp ffmpeg     # macOS; ffmpeg is only for tools/simulate.mjs
 ./followspot download base.en
 ./followspot examples/sample.md
 ```

@@ -17,7 +17,7 @@ Most browser teleprompters that follow your voice use the browser's built-in spe
 ## Quick start
 
 ```bash
-brew install whisper.cpp          # macOS. On Linux, build whisper.cpp and put whisper-server on PATH.
+brew install whisper-cpp          # macOS. On Linux, build whisper.cpp and put whisper-server on PATH.
 git clone https://github.com/JoeKarlsson/followspot.git && cd followspot
 ./followspot download small.en      # about 470 MB, see "Models"
 ./followspot examples/sample.md
