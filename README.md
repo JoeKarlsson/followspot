@@ -1,5 +1,7 @@
 # Followspot
 
+[![CI](https://github.com/JoeKarlsson/followspot/actions/workflows/ci.yml/badge.svg)](https://github.com/JoeKarlsson/followspot/actions/workflows/ci.yml)
+
 A voice-following teleprompter that runs in your browser and listens with a local [whisper.cpp](https://github.com/ggml-org/whisper.cpp) model. Read your script out loud and the highlight follows you. Skip a sentence, flub a word, or ad-lib a little and it keeps going. Stop talking and it stops too.
 
 Your audio never leaves your machine. The page sends it to a whisper.cpp server bound to `127.0.0.1`, and that's the only place it goes.
@@ -16,7 +18,7 @@ Most browser teleprompters that follow your voice use the browser's built-in spe
 
 ```bash
 brew install whisper.cpp          # macOS. On Linux, build whisper.cpp and put whisper-server on PATH.
-git clone <this repo> && cd followspot
+git clone https://github.com/JoeKarlsson/followspot.git && cd followspot
 ./followspot download small.en      # about 470 MB, see "Models"
 ./followspot examples/sample.md
 ```
