@@ -106,9 +106,13 @@ jobs:
       - name: Simulated read-throughs (straight, and skipping every 3rd sentence)
         run: npm run e2e
       - name: VAD returns nothing for silence
+        # 3 s of digital silence, written with the project's own WAV encoder
+        # (the Ubuntu image has no ffmpeg).
         run: |
           grep -q "^VAD:    models/ggml-silero" server.log
-          ffmpeg -loglevel error -y -f lavfi -i anullsrc=r=16000:cl=mono -t 3 -c:a pcm_s16le silence.wav
+          node --input-type=module -e 'import { writeFileSync } from "node:fs";
+            import { encodeWav } from "./public/audio.js";
+            writeFileSync("silence.wav", encodeWav(new Float32Array(3 * 16000)));'
           out=$(curl -s http://127.0.0.1:8178/inference -F file=@silence.wav -F response_format=json)
           echo "$out"
           test "$out" = '{"text":""}'
