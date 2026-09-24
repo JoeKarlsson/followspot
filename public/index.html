@@ -29,12 +29,12 @@
 
   <div id="toolbar">
     <div class="controls">
-      <button id="tb-listen" class="primary">Listen</button>
+      <button type="button" id="tb-listen" class="primary">Listen</button>
       <span class="group">
         <span class="label">Size</span>
-        <button data-step="fontSize" data-by="-4">−</button>
+        <button type="button" data-step="fontSize" data-by="-4">−</button>
         <output id="tb-fontSize"></output>
-        <button data-step="fontSize" data-by="4">+</button>
+        <button type="button" data-step="fontSize" data-by="4">+</button>
       </span>
       <label class="group"><span class="label">Width</span>
         <input type="range" data-setting="columnWidth" min="20" max="100" step="1"></label>
@@ -44,9 +44,9 @@
         <input type="range" data-setting="marginBottom" min="0" max="45" step="1"></label>
       <label class="group"><span class="label">Reading line</span>
         <input type="range" data-setting="readingLine" min="10" max="90" step="1"></label>
-      <button id="tb-mirror" class="toggle">Mirror</button>
-      <button id="tb-fullscreen">Fullscreen</button>
-      <button id="tb-settings">More…</button>
+      <button type="button" id="tb-mirror" class="toggle">Mirror</button>
+      <button type="button" id="tb-fullscreen">Fullscreen</button>
+      <button type="button" id="tb-settings">More…</button>
     </div>
     <div class="keys">
       Click any word to jump there · Space listen · ←/→ word · ↑/↓ paragraph · R top · M mirror · F fullscreen · H hide status
@@ -68,7 +68,7 @@
       <label class="check"><input id="mirror" type="checkbox"> Mirror (flip horizontally)</label>
       <label class="check"><input id="showCues" type="checkbox"> Show stage directions</label>
       <label class="check"><input id="showReadingLine" type="checkbox"> Show reading line</label>
-      <button value="close">Done</button>
+      <button type="submit" value="close">Done</button>
     </form>
   </dialog>
 

@@ -244,7 +244,7 @@ async function startAudio() {
 }
 
 function stopAudio() {
-  stream?.getTracks().forEach((t) => t.stop());
+  for (const track of stream?.getTracks() ?? []) track.stop();
   audioCtx?.close();
   stream = null;
   audioCtx = null;
