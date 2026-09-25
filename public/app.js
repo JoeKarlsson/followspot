@@ -1,5 +1,6 @@
 import { align, buildTokens, parseScript, tokenizeHeard } from "./align.js";
 import { createDecimator, createRing, encodeWav, RATE, rms } from "./audio.js";
+import { applySetting, CHANNEL, keyAction } from "./remote.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -37,6 +38,7 @@ function loadSettings() {
 }
 
 const settings = loadSettings();
+const channel = new BroadcastChannel(CHANNEL);
 
 function saveSettings() {
   try {
@@ -125,6 +127,7 @@ function loadText(md) {
   scriptText = md;
   if (first) cursor = 0;
   render(md);
+  channel.postMessage({ type: "script", text: md });
 }
 
 let dropped = false; // a dropped file wins over current.md until reload
@@ -428,44 +431,65 @@ function jumpParagraph(dir) {
   else moveTo([...paraStarts].reverse().find((i) => i < cur - 1) ?? 0);
 }
 
+function jumpToWord(w) {
+  const t = tokens.findIndex((tok) => tok.word >= w);
+  moveTo(t < 0 ? tokens.length : t);
+  // Audio from before the jump mustn't drag the cursor back.
+  ring.clear();
+}
+
+async function changeSetting(key, value) {
+  const oldMic = settings.mic;
+  if (!applySetting(settings, DEFAULT_SETTINGS, key, value)) return;
+  applySettings();
+  await restartMicIfChanged(oldMic);
+}
+
+async function restartMicIfChanged(oldMic) {
+  if (!listening || settings.mic === oldMic) return;
+  stopAudio();
+  try {
+    await startAudio();
+  } catch (err) {
+    listening = false;
+    setStatus(`Mic error: ${err.message}`, "err");
+    syncToolbar();
+  }
+}
+
+function toggleFullscreen() {
+  // Rejects without a user gesture in this window (e.g. sent from the
+  // control window); there's nothing useful to do about that.
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+
+// What each shortcut does (keys are mapped in remote.js). The control
+// window sends these same names.
+const ACTIONS = {
+  listen: toggleListening,
+  restart: () => moveTo(0),
+  wordNext: () => moveTo(Math.floor(display) + 1),
+  wordPrev: () => moveTo(Math.floor(display) - 1),
+  paraNext: () => jumpParagraph(1),
+  paraPrev: () => jumpParagraph(-1),
+  camera: toggleCamera,
+  mirror: () => changeSetting("mirror", !settings.mirror),
+  bigger: () => changeSetting("fontSize", settings.fontSize + 4),
+  smaller: () => changeSetting("fontSize", settings.fontSize - 4),
+  wider: () => changeSetting("columnWidth", settings.columnWidth + 4),
+  narrower: () => changeSetting("columnWidth", settings.columnWidth - 4),
+  hud: () => document.body.classList.toggle("hide-hud"),
+  fullscreen: toggleFullscreen,
+  settings: () => openSettings(),
+};
+
 document.addEventListener("keydown", (e) => {
   if ($("settings").open || e.target.tagName === "INPUT") return;
-  const k = e.key;
-  if (k === " ") {
-    e.preventDefault();
-    toggleListening();
-  } else if (k === "ArrowRight") moveTo(Math.floor(display) + 1);
-  else if (k === "ArrowLeft") moveTo(Math.floor(display) - 1);
-  else if (k === "ArrowDown") {
-    e.preventDefault();
-    jumpParagraph(1);
-  } else if (k === "ArrowUp") {
-    e.preventDefault();
-    jumpParagraph(-1);
-  } else if (k === "r" || k === "R" || k === "Home") {
-    e.preventDefault();
-    moveTo(0);
-  } else if (k === "c" || k === "C") toggleCamera();
-  else if (k === "m" || k === "M") {
-    settings.mirror = !settings.mirror;
-    applySettings();
-  } else if (k === "+" || k === "=") {
-    settings.fontSize += 4;
-    applySettings();
-  } else if (k === "-" || k === "_") {
-    settings.fontSize = Math.max(20, settings.fontSize - 4);
-    applySettings();
-  } else if (k === "]") {
-    settings.columnWidth = Math.min(100, settings.columnWidth + 4);
-    applySettings();
-  } else if (k === "[") {
-    settings.columnWidth = Math.max(20, settings.columnWidth - 4);
-    applySettings();
-  } else if (k === "h" || k === "H") document.body.classList.toggle("hide-hud");
-  else if (k === "f" || k === "F") {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else document.documentElement.requestFullscreen();
-  } else if (k === "s" || k === "S") openSettings();
+  const action = keyAction(e);
+  if (!action) return;
+  e.preventDefault();
+  ACTIONS[action]();
 });
 
 function openSettings() {
@@ -490,21 +514,13 @@ $("settings").addEventListener("close", async () => {
     else if (el.value !== "") settings[key] = Number(el.value);
   }
   applySettings();
-  if (listening && settings.mic !== oldMic) {
-    stopAudio();
-    await startAudio();
-  }
+  await restartMicIfChanged(oldMic);
 });
 
-// Click a word to jump back (or ahead) to it. The listen buffer is cleared
-// so audio from before the jump can't drag the cursor back.
+// Click a word to jump back (or ahead) to it.
 $("script").addEventListener("click", (e) => {
   const el = e.target.closest(".w");
-  if (!el) return;
-  const w = Number(el.dataset.w);
-  const t = tokens.findIndex((tok) => tok.word >= w);
-  moveTo(t < 0 ? tokens.length : t);
-  ring.clear();
+  if (el) jumpToWord(Number(el.dataset.w));
 });
 
 // Hover toolbar: show on mouse move, hide after a pause unless the pointer
@@ -563,8 +579,11 @@ $("tb-camera").addEventListener("click", (e) => {
 });
 $("tb-fullscreen").addEventListener("click", (e) => {
   e.currentTarget.blur();
-  if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen();
+  toggleFullscreen();
+});
+$("tb-controls").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  window.open("control.html", "followspot-control", "popup,width=1000,height=800");
 });
 $("tb-settings").addEventListener("click", (e) => {
   e.currentTarget.blur();
@@ -591,12 +610,48 @@ window.addEventListener("drop", async (e) => {
   loadText(text);
 });
 
+// ---------- control window ----------
+
+// control.html can drive the prompter from another screen. This window stays
+// the source of truth: it answers commands and publishes its state whenever
+// something changed (checked every 100 ms, sent only on a difference).
+let lastState = "";
+
+function publish(force = false) {
+  const state = {
+    type: "state",
+    settings,
+    listening,
+    status: $("status").textContent,
+    statusCls: $("dot").className,
+    heard: $("heard").textContent,
+    latency: $("latency").textContent,
+    hud: !document.body.classList.contains("hide-hud"),
+    word: currentWord(),
+    words: wordEls.length,
+  };
+  const json = JSON.stringify(state);
+  if (!force && json === lastState) return;
+  lastState = json;
+  channel.postMessage(state);
+}
+
+channel.onmessage = ({ data: m }) => {
+  if (m?.type === "hello") {
+    if (scriptText !== null) channel.postMessage({ type: "script", text: scriptText });
+    publish(true);
+  } else if (m?.type === "action" && Object.hasOwn(ACTIONS, m.name)) ACTIONS[m.name]();
+  else if (m?.type === "set") changeSetting(m.key, m.value);
+  else if (m?.type === "jump" && Number.isInteger(m.word)) jumpToWord(m.word);
+};
+
 // ---------- boot ----------
 
 applySettings();
 await fetchScript();
 setInterval(fetchScript, 2000); // picks up edits to the script file live
 setInterval(tick, 250);
+setInterval(publish, 100);
 setInterval(() => {
   $("level").style.width = `${Math.min(100, level * 800)}%`;
 }, 50);

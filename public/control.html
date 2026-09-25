@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Followspot Controls</title>
+  <link rel="stylesheet" href="control.css">
+</head>
+<body>
+  <header>
+    <div class="row">
+      <span id="dot"></span>
+      <span id="status">Connecting…</span>
+      <span id="latency"></span>
+    </div>
+    <div id="heard"></div>
+    <nav>
+      <button type="button" data-action="listen" id="listen" class="primary">Listen</button>
+      <button type="button" data-action="restart">Restart</button>
+      <span class="group">
+        <button type="button" data-action="paraPrev" title="Previous paragraph (↑)">↑</button>
+        <button type="button" data-action="wordPrev" title="Previous word (←)">←</button>
+        <button type="button" data-action="wordNext" title="Next word (→)">→</button>
+        <button type="button" data-action="paraNext" title="Next paragraph (↓)">↓</button>
+      </span>
+      <button type="button" data-action="camera" class="toggle" data-on="camera">Camera</button>
+      <button type="button" data-action="mirror" class="toggle" data-on="mirror">Mirror</button>
+      <button type="button" data-action="hud" class="toggle" id="hud">Status box</button>
+    </nav>
+  </header>
+
+  <div id="offline" hidden>
+    The prompter isn't open. <a href="./" target="followspot-prompter">Open it</a>, then put it on the other screen.
+  </div>
+
+  <main>
+    <section id="pane"><div id="script"></div></section>
+
+    <aside id="panel">
+      <h2>Display</h2>
+      <label>Font size <input type="range" data-key="fontSize" step="2"><output></output></label>
+      <label>Width <input type="range" data-key="columnWidth" step="1"><output></output></label>
+      <label>Reading line <input type="range" data-key="readingLine" step="1"><output></output></label>
+      <label>Top margin <input type="range" data-key="marginTop" step="1"><output></output></label>
+      <label>Bottom margin <input type="range" data-key="marginBottom" step="1"><output></output></label>
+      <label class="check"><input type="checkbox" data-key="showCues"> Stage directions</label>
+      <label class="check"><input type="checkbox" data-key="showReadingLine"> Reading line</label>
+
+      <h2>Camera</h2>
+      <label class="check"><input type="checkbox" data-key="camera"> Show behind the script</label>
+      <label>Opacity <input type="range" data-key="cameraOpacity" step="1"><output></output></label>
+      <label>Device <select data-key="cam" data-kind="videoinput"></select></label>
+
+      <h2>Listening</h2>
+      <label>Microphone <select data-key="mic" data-kind="audioinput"></select></label>
+      <label>Window (s) <input type="range" data-key="windowSec" step="0.5"><output></output></label>
+      <label>Silence gate <input type="range" data-key="gate" step="0.002"><output></output></label>
+      <label>Coast (words/s) <input type="range" data-key="coast" step="0.1"><output></output></label>
+
+      <p class="keys">Space listen · R/Home restart · ←/→ word · ↑/↓ paragraph · C camera · M mirror · H status box.
+        Fullscreen has to be turned on in the prompter window itself (F).</p>
+    </aside>
+  </main>
+
+  <script type="module" src="control.js"></script>
+</body>
+</html>
