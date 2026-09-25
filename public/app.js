@@ -18,6 +18,9 @@ const DEFAULT_SETTINGS = {
   mirror: false,
   showCues: true,
   showReadingLine: true,
+  camera: false,
+  cam: "",
+  cameraOpacity: 25,
 };
 
 function loadSettings() {
@@ -48,9 +51,13 @@ function applySettings() {
   root.setProperty("--reading-line", `${settings.readingLine}%`);
   root.setProperty("--margin-top", `${settings.marginTop}vh`);
   root.setProperty("--margin-bottom", `${settings.marginBottom}vh`);
+  root.setProperty("--camera-opacity", settings.cameraOpacity / 100);
   $("stage").classList.toggle("mirror", settings.mirror);
+  $("camera-view").classList.toggle("mirror", settings.mirror);
   document.body.classList.toggle("hide-cues", !settings.showCues);
   document.body.classList.toggle("hide-line", !settings.showReadingLine);
+  document.body.classList.toggle("camera-on", settings.camera);
+  syncCamera();
   snap = true;
   syncToolbar();
   saveSettings();
@@ -62,6 +69,7 @@ function syncToolbar() {
     el.value = settings[el.dataset.setting];
   }
   $("tb-mirror").classList.toggle("on", settings.mirror);
+  $("tb-camera").classList.toggle("on", settings.camera);
   $("tb-listen").textContent = listening ? "Pause" : "Listen";
 }
 
@@ -252,7 +260,7 @@ async function startAudio() {
   const mute = audioCtx.createGain();
   mute.gain.value = 0;
   src.connect(node).connect(mute).connect(audioCtx.destination);
-  await populateMics();
+  await populateDevices("audioinput", "mic", settings.mic);
 }
 
 function stopAudio() {
@@ -263,14 +271,60 @@ function stopAudio() {
   ring.clear();
 }
 
-async function populateMics() {
-  const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput");
-  const sel = $("mic");
+// Device labels are only visible once the page has permission for that
+// kind, so the pickers fill in after the first successful start.
+async function populateDevices(kind, selectId, value) {
+  const devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === kind);
+  const sel = $(selectId);
   sel.textContent = "";
-  const def = new Option("System default", "");
-  sel.append(def);
+  sel.append(new Option("System default", ""));
   for (const d of devices) sel.append(new Option(d.label || d.deviceId.slice(0, 8), d.deviceId));
-  sel.value = settings.mic;
+  sel.value = value;
+}
+
+// ---------- camera ----------
+
+// Optional dim self-view behind the script. It's a separate video-only
+// stream, so toggling it never interrupts listening. Calls are chained so
+// a burst of applySettings() (dragging a slider) can't open two streams.
+let camStream = null;
+let camDevice = "";
+let camQueue = Promise.resolve();
+
+function syncCamera() {
+  camQueue = camQueue.then(syncCameraNow);
+}
+
+async function syncCameraNow() {
+  if (camStream && (!settings.camera || camDevice !== settings.cam)) {
+    for (const track of camStream.getTracks()) track.stop();
+    camStream = null;
+    $("camera-view").srcObject = null;
+  }
+  if (!settings.camera || camStream) return;
+  try {
+    camDevice = settings.cam;
+    camStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: settings.cam ? { exact: settings.cam } : undefined,
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    });
+    $("camera-view").srcObject = camStream;
+    await populateDevices("videoinput", "cam", settings.cam);
+  } catch (err) {
+    settings.camera = false;
+    document.body.classList.remove("camera-on");
+    saveSettings();
+    syncToolbar();
+    setStatus(`Camera error: ${err.message}`, "err");
+  }
+}
+
+function toggleCamera() {
+  settings.camera = !settings.camera;
+  applySettings();
 }
 
 // The words just behind the cursor, in their original spelling. Whisper
@@ -391,7 +445,8 @@ document.addEventListener("keydown", (e) => {
   } else if (k === "r" || k === "R" || k === "Home") {
     e.preventDefault();
     moveTo(0);
-  } else if (k === "m" || k === "M") {
+  } else if (k === "c" || k === "C") toggleCamera();
+  else if (k === "m" || k === "M") {
     settings.mirror = !settings.mirror;
     applySettings();
   } else if (k === "+" || k === "=") {
@@ -421,6 +476,7 @@ function openSettings() {
     else el.value = settings[key];
   }
   if (!$("mic").options.length) $("mic").append(new Option("Start listening once to list mics", ""));
+  if (!$("cam").options.length) $("cam").append(new Option("Turn the camera on once to list cameras", ""));
   $("settings").showModal();
 }
 
@@ -500,6 +556,10 @@ $("tb-mirror").addEventListener("click", (e) => {
   e.currentTarget.blur();
   settings.mirror = !settings.mirror;
   applySettings();
+});
+$("tb-camera").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  toggleCamera();
 });
 $("tb-fullscreen").addEventListener("click", (e) => {
   e.currentTarget.blur();
