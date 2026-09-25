@@ -388,8 +388,10 @@ document.addEventListener("keydown", (e) => {
   } else if (k === "ArrowUp") {
     e.preventDefault();
     jumpParagraph(-1);
-  } else if (k === "r" || k === "R") moveTo(0);
-  else if (k === "m" || k === "M") {
+  } else if (k === "r" || k === "R" || k === "Home") {
+    e.preventDefault();
+    moveTo(0);
+  } else if (k === "m" || k === "M") {
     settings.mirror = !settings.mirror;
     applySettings();
   } else if (k === "+" || k === "=") {
@@ -489,6 +491,10 @@ for (const el of document.querySelectorAll("#toolbar [data-step]")) {
 $("tb-listen").addEventListener("click", (e) => {
   e.currentTarget.blur();
   toggleListening();
+});
+$("tb-restart").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  moveTo(0);
 });
 $("tb-mirror").addEventListener("click", (e) => {
   e.currentTarget.blur();
