@@ -59,6 +59,33 @@ func scriptNames() {
   }
 }
 
+func conflictingSaves() throws {
+  let file = try tempDir().appendingPathComponent("script.md")
+  try "original".write(to: file, atomically: true, encoding: .utf8)
+  expect(try Scripts.save("mine", to: file, base: "original", force: false) == .saved, "saves over the base text")
+  expect(try String(contentsOf: file, encoding: .utf8) == "mine", "wrote the edits")
+
+  try "changed elsewhere".write(to: file, atomically: true, encoding: .utf8)
+  expect(try Scripts.save("mine again", to: file, base: "mine", force: false) == .conflict, "spots an outside edit")
+  expect(try String(contentsOf: file, encoding: .utf8) == "changed elsewhere", "leaves the outside edit alone")
+  expect(try Scripts.save("mine again", to: file, base: "mine", force: true) == .saved, "force overwrites")
+  expect(try String(contentsOf: file, encoding: .utf8) == "mine again", "wrote after force")
+}
+
+// A reply WebKit can't convert is dropped without an error, and the page
+// waits forever (this happened: `url.path` resolved to a method).
+func bridgeReplies() throws {
+  let url = URL(fileURLWithPath: "/tmp/Some script.md")
+  let saved = Scripts.saveReply(.saved, url)
+  expect(saved["saved"] as? String == "/tmp/Some script.md", "save reply carries the path as a string")
+  expect(JSONSerialization.isValidJSONObject(saved), "save reply is JSON")
+  expect(JSONSerialization.isValidJSONObject(Scripts.saveReply(.conflict, url)), "conflict reply is JSON")
+  let list = Scripts.listReply(current: url)
+  expect(JSONSerialization.isValidJSONObject(list), "list reply is JSON")
+  expect(list["current"] as? String == "/tmp/Some script.md", "list reply names the open script")
+  expect(JSONSerialization.isValidJSONObject(Scripts.listReply(current: nil)), "list reply with no script is JSON")
+}
+
 func versions() {
   expect(Updates.isNewer("v0.2.0", than: "0.1.0"), "v0.2.0 > 0.1.0")
   expect(Updates.isNewer("0.10.0", than: "0.9.9"), "numeric, not string, compare")
@@ -223,6 +250,8 @@ let dropServer = #"""
   static func main() async {
     let suites: [(String, () async throws -> Void)] = [
       ("script names", { scriptNames() }),
+      ("conflicting saves", { try conflictingSaves() }),
+      ("bridge replies", { try bridgeReplies() }),
       ("versions", { versions() }),
       ("server flags", { try serverFlags() }),
       ("model ranking", { try modelRanking() }),

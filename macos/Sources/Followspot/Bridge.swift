@@ -50,7 +50,13 @@ final class Bridge: NSObject, WKScriptMessageHandlerWithReply {
       let body = message.body as? [String: Any], let type = body["type"] as? String
     else { return replyHandler(nil, "Not allowed") }
     do {
-      replyHandler(try handler(type, body) ?? NSNull(), nil)
+      let value = try handler(type, body) ?? NSNull()
+      // WebKit silently drops a reply it can't convert (the page's promise
+      // then never settles), so check first and fail loudly instead.
+      guard JSONSerialization.isValidJSONObject([value]) else {
+        return replyHandler(nil, "Followspot sent an invalid reply to \(type).")
+      }
+      replyHandler(value, nil)
     } catch {
       replyHandler(nil, error.localizedDescription)
     }

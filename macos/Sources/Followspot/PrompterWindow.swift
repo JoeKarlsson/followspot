@@ -28,6 +28,7 @@ final class PrompterWindow: NSObject, WKUIDelegate, WKNavigationDelegate, NSWind
     super.init()
     webView.uiDelegate = self
     webView.navigationDelegate = self
+    window.delegate = self
   }
 
   var isShowingPage: Bool { window.contentView === webView }
@@ -82,6 +83,38 @@ final class PrompterWindow: NSObject, WKUIDelegate, WKNavigationDelegate, NSWind
       win.sharingType = settings.hideFromCapture ? .none : .readOnly
     }
     window.level = settings.floatOnTop ? .floating : .normal
+  }
+
+  var hasControlWindow: Bool { controlWebView != nil }
+
+  // If the control window's editor has unsaved edits, asks Save / Cancel /
+  // Don't Save. Calls done(true) when it's fine to go ahead.
+  func confirmUnsavedEdits(_ done: @escaping (Bool) -> Void) {
+    guard let editor = controlWebView else { return done(true) }
+    editor.callAsyncJavaScript(
+      "return window.followspotEditor ? window.followspotEditor.state() : null", in: nil, in: .page
+    ) { result in
+      guard let state = (try? result.get()) as? [String: Any], state["dirty"] as? Bool == true else {
+        return done(true)
+      }
+      self.controlWindow?.makeKeyAndOrderFront(nil)
+      let alert = NSAlert()
+      alert.messageText = "Save your changes to \(state["name"] as? String ?? "the script")?"
+      alert.informativeText = "The script you're editing in the control window has unsaved changes."
+      alert.addButton(withTitle: "Save")
+      alert.addButton(withTitle: "Cancel")
+      alert.addButton(withTitle: "Don't Save")
+      switch alert.runModal() {
+      case .alertFirstButtonReturn:
+        // The page's save may still need a name (a new script) or hit a
+        // conflict; then it stays open and nothing goes ahead.
+        editor.callAsyncJavaScript("return await window.followspotEditor.save()", in: nil, in: .page) {
+          done((try? $0.get()) as? Bool == true)
+        }
+      case .alertSecondButtonReturn: done(false)
+      default: done(true)
+      }
+    }
   }
 
   func presentSheet<V: View>(_ view: V) -> NSWindow {
@@ -152,6 +185,26 @@ final class PrompterWindow: NSObject, WKUIDelegate, WKNavigationDelegate, NSWind
 
   func webViewDidClose(_ webView: WKWebView) {
     if webView === controlWebView { controlWindow?.close() }
+  }
+
+  private var closeConfirmed = false
+
+  // Closing the control window with unsaved edits asks first. Closing the
+  // prompter quits (the control window can't do anything without it), and
+  // quitting asks too (AppDelegate.applicationShouldTerminate).
+  func windowShouldClose(_ sender: NSWindow) -> Bool {
+    if sender === window {
+      NSApp.terminate(nil)
+      return false
+    }
+    guard sender === controlWindow, !closeConfirmed else { return true }
+    confirmUnsavedEdits { [weak self] ok in
+      guard ok, let self else { return }
+      self.closeConfirmed = true
+      sender.close()
+      self.closeConfirmed = false
+    }
+    return false
   }
 
   func windowWillClose(_ notification: Notification) {
