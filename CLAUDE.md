@@ -10,6 +10,8 @@ Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double
 ./followspot download base.en           # fetch a model into models/ (gitignored)
 ./followspot download vad               # Silero VAD; auto-enabled when present (--no-vad to skip)
 macos/build-whisper.sh && macos/build.sh --install   # native app → /Applications/Followspot.app
+macos/package.sh                        # dist/Followspot-<version>.dmg (CI does this on every push)
+macos/check-args.sh "$HOME/Library/Application Support/Followspot/server.args" -m models/<m>.bin -- <flags>  # app vs launcher flags
 macos/icon/make-icns.sh [png]           # regenerate the app icon (drawn in make-icon.swift, or from a PNG)
 npm run lint                          # Biome (lint + format check) + ShellCheck; npm run format to fix
 npm run check                         # node --check on all JS + bash -n followspot
@@ -26,7 +28,8 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - `public/app.js` is wiring only: settings (localStorage), rendering, the listen loop (250 ms tick, 3.5 s window, silence gate), coast, toolbar, and keys.
 - There are two positions. `cursor` is confirmed by speech or by the user; `display` is what's highlighted and can coast up to 10 tokens ahead of `cursor`. A match always resets `display` to near `cursor`.
 - The whisper `prompt` is the ~30 script words *behind* the cursor. Don't prompt with upcoming text: Whisper will echo it and the cursor will run ahead of the speaker.
-- `macos/` is a thin Swift wrapper around the same page. It runs the bundled whisper-server on 8177 with the launcher's flags, serves a staging folder of symlinks (`~/Library/Application Support/Followspot/www`, with `current.md` pointing at the open script), and shows it in a WKWebView. Keep behavior in `public/`: the app should need no page changes.
+- `macos/` is a thin Swift wrapper around the same page. It runs the bundled whisper-server on 8177 with the launcher's flags, serves a staging folder of symlinks (`~/Library/Application Support/Followspot/www`, with `current.md` pointing at the open script), and shows it in a WKWebView. Keep behavior in `public/`: the app should need no page changes. App and page talk two ways (`Bridge.swift`): the app joins the page's BroadcastChannel via an injected user script (sending actions and settings, reading listening state), and the page calls `webkit.messageHandlers.followspot` through `public/native.js` for app-only features (scripts list, save, create). The page never passes a path to write: saves go to the open script, and new scripts are created by name in the scripts folder.
+- Release builds (`build.sh`, `-c release`) never look outside the bundle and Application Support; `Paths.repo` (the checkout's `models/`, `public/`, `macos/.whisper/`) exists only in debug `swift run` builds.
 
 ## Rules
 
@@ -53,3 +56,5 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - With only the Command Line Tools (no Xcode), SwiftUI's `@State` macro plugin is missing, so it fails to compile. The app keeps view state in `ObservableObject`s instead.
 - The app's `localStorage` is keyed by origin, and the origin includes the port. That's why the port is fixed (8177). Changing it resets the page's saved settings in the app.
 - `defaults write … -array` stores `--` literally and numbers as numbers. `extraArgs` is read as `[Any]`, so don't switch it back to `stringArray`.
+- Fast mode (`-ac 512`) only applies to models of 1 GB and up: measured 3x faster on large-v3-turbo, but base.en's worst request doubled. Resolve symlinks before checking model size (linked models otherwise read as a few bytes).
+- Driving the app in tests: System Events can click WKWebView content through the accessibility tree (`entire contents of window …` gives the paths), and `pmset -g assertions` shows whether "Followspot is listening" is holding the display awake. WebKit's `<select>` popups don't expose their items; open them and use arrow keys.

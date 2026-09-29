@@ -39,21 +39,44 @@ sudo cp whisper.cpp/build/bin/whisper-server /usr/local/bin/
 
 ### macOS app
 
-There's also a native app. It's the same page in its own window, with whisper-server bundled inside, so you don't need Homebrew. On first launch it offers to download a model into `~/Library/Application Support/Followspot/models` (it also finds models in this repo's `models/` and Screen Studio's). Build it from source (Apple silicon, macOS 14+, Xcode Command Line Tools, `brew install cmake`):
+There's also a native app for Apple silicon Macs (macOS 14+). It's the same page in its own window, with whisper-server bundled inside, so there's nothing else to install.
+
+**Install:** download `Followspot-<version>.dmg` from [Releases](https://github.com/JoeKarlsson/followspot/releases) (or the latest `Followspot-macOS` artifact of the [macOS app workflow](https://github.com/JoeKarlsson/followspot/actions/workflows/macos-app.yml)) and drag the app to Applications. It isn't signed with an Apple Developer ID, so the first time you open it macOS refuses. Go to **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/Followspot.app`. You only need to do this once per Mac and version.
+
+On first launch it offers to download a model into `~/Library/Application Support/Followspot/models`. Every download is checked against Hugging Face's SHA-256 and resumes if the connection drops. It also uses Screen Studio's bundled model if you have it. **Model > Add Model File…** links in a model you already have somewhere else.
+
+**Scripts** live in `~/Documents/Followspot` (change it in Settings). The control window (**⌘K**) lists them. You can switch between them, create a new one, and edit the open script right there: **Edit**, then **⌘S** saves, and the prompter updates a moment later. **⌘O** still opens a script from anywhere, and so does dropping one on the Dock icon. Edits saved in another editor show up live, just as with the launcher.
+
+**Settings (⌘,)**
+- **Devices:** microphone and camera.
+- **Speech:** model, VAD, and fast mode. Fast mode sends `-ac 512` on medium and large models: about 3x faster on large-v3-turbo, with the same tracking.
+- **General:**
+  - Keeps the display awake while you're listening.
+  - Can hide the windows from screen recordings. Check this with your recorder, since some ignore it.
+  - Can keep the prompter above other windows.
+  - Sets the scripts folder.
+- **Advanced:** the server port (8177, so it can run alongside `./followspot`) and extra whisper-server flags (the launcher's `--`).
+
+**Global shortcuts** work while another app, such as your recorder, is in front:
+
+| Shortcut | Does |
+|---|---|
+| ⌃⌥Space | Start / pause listening |
+| ⌃⌥← / ⌃⌥→ | Back / forward one word |
+| ⌃⌥↑ / ⌃⌥↓ | Previous / next paragraph |
+| ⌃⌥R | Back to the top |
+
+Turn them off in Settings > General. If something goes wrong, look at **Help > Show Server Log**.
+
+**Build it yourself** (Xcode Command Line Tools, `brew install cmake`):
 
 ```bash
 macos/build-whisper.sh           # once: a static whisper-server with Metal
 macos/build.sh --install         # builds dist/Followspot.app and copies it to /Applications
+macos/package.sh                 # optional: dist/Followspot-<version>.dmg
 ```
 
-Open a script with **⌘O**, from Open Recent, or by dropping it on the Dock icon. Live editing works the same as with the launcher. **⌘K** opens the control window, and **⌃⌘F** goes full screen. The Model menu switches models, downloads more, and toggles VAD. The app runs its server on port 8177, so it can run alongside `./followspot`. To change the port or pass flags to whisper-server (the launcher's `--`), use:
-
-```bash
-defaults write com.joekarlsson.followspot port -int 8179
-defaults write com.joekarlsson.followspot extraArgs -array -ac 512
-```
-
-The build is ad-hoc signed, so it's meant for the Mac that built it. On another Mac, right-click it and choose **Open** the first time. If something goes wrong, check the server log under **Help > Show Server Log**.
+Rebuilding changes the app's ad-hoc signature, so macOS asks for microphone and camera access again after each rebuild. Downloaded builds don't have this problem.
 
 ## Using it
 
