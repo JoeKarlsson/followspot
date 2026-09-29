@@ -59,7 +59,8 @@ public/app.js            wiring: mic capture, listen loop, rendering, controls
 public/align.js          script parsing and speech-to-script alignment (pure)
 public/audio.js          decimator, ring buffer, RMS, WAV encoder (pure)
 public/recorder-worklet.js  AudioWorklet that forwards mic samples
-public/demo.md           demo script (first run, README GIF)
+public/demo.md           first-run guide and practice script
+public/recipe.md         short script the README GIF is recorded from
 test/                    node:test unit tests
 tools/simulate.mjs       end-to-end read-through (live say, or --audio fixture)
 test/fixtures/           recorded speech + the exact text it was recorded from

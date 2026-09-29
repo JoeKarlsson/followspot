@@ -1,5 +1,5 @@
 // Records docs/demo.gif: the real pipeline, no faked scrolling. macOS `say`
-// reads public/demo.md into a WAV, the page's getUserMedia is swapped for a
+// reads public/recipe.md into a WAV, the page's getUserMedia is swapped for a
 // stream that plays that WAV (headless Chrome's --use-file-for-fake-audio-capture
 // delivers silence on macOS), Followspot tracks it through the running whisper
 // server, and screenshots are stitched into a GIF with ffmpeg.
@@ -32,7 +32,7 @@ if (!existsSync(CHROME)) throw new Error(`Chrome not found at ${CHROME}; set CHR
 // 1. Speech: the spoken words of the demo script, with a beat of silence
 //    first so the recording opens on a still frame.
 const dir = mkdtempSync(join(tmpdir(), "followspot-demo-"));
-const words = parseScript(readFileSync("public/demo.md", "utf8"))
+const words = parseScript(readFileSync("public/recipe.md", "utf8"))
   .map((p) =>
     p
       .filter((i) => i.type === "word")
@@ -136,7 +136,7 @@ try {
     });
 
   // Demo-friendly settings, then load the demo script.
-  const url = `http://127.0.0.1:${port}/?script=demo.md`;
+  const url = `http://127.0.0.1:${port}/?script=recipe.md`;
   await send("Page.enable");
   await send("Page.addScriptToEvaluateOnNewDocument", { source: fakeMic });
   await send("Page.navigate", { url });
