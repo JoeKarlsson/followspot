@@ -37,6 +37,24 @@ cmake --build whisper.cpp/build -j --target whisper-server
 sudo cp whisper.cpp/build/bin/whisper-server /usr/local/bin/
 ```
 
+### macOS app
+
+There's also a native app. It's the same page in its own window, with whisper-server bundled inside, so you don't need Homebrew. On first launch it offers to download a model into `~/Library/Application Support/Followspot/models` (it also finds models in this repo's `models/` and Screen Studio's). Build it from source (Apple silicon, macOS 14+, Xcode Command Line Tools, `brew install cmake`):
+
+```bash
+macos/build-whisper.sh           # once: a static whisper-server with Metal
+macos/build.sh --install         # builds dist/Followspot.app and copies it to /Applications
+```
+
+Open a script with **⌘O**, from Open Recent, or by dropping it on the Dock icon. Live editing works the same as with the launcher. **⌘K** opens the control window, and **⌃⌘F** goes full screen. The Model menu switches models, downloads more, and toggles VAD. The app runs its server on port 8177, so it can run alongside `./followspot`. To change the port or pass flags to whisper-server (the launcher's `--`), use:
+
+```bash
+defaults write com.joekarlsson.followspot port -int 8179
+defaults write com.joekarlsson.followspot extraArgs -array -ac 512
+```
+
+The build is ad-hoc signed, so it's meant for the Mac that built it. On another Mac, right-click it and choose **Open** the first time. If something goes wrong, check the server log under **Help > Show Server Log**.
+
 ## Using it
 
 - **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page. Run `./followspot` with no script and you get a short demo script to try.
