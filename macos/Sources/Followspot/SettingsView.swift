@@ -103,6 +103,9 @@ struct SettingsView: View {
         Text(HotKeys.bindings.map { "\($0.label) \(Self.describe($0.action))" }.joined(separator: " · "))
           .font(.caption).foregroundStyle(.secondary)
       }
+      Section("Updates") {
+        Toggle("Check GitHub for a new version once a day", isOn: $settings.checkForUpdates)
+      }
       Section("Scripts") {
         LabeledContent("Folder") {
           HStack {

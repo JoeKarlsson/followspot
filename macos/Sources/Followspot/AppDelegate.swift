@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     updateTitle()
     startServer()
+    if settings.checkForUpdates { Task { await checkForUpdates(force: false) } }
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -159,6 +160,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     panel.directoryURL = settings.scriptsURL
     panel.prompt = "Use Folder"
     if panel.runModal() == .OK, let url = panel.url { settings.scriptsFolder = url.path }
+  }
+
+  // MARK: Updates
+
+  private var updateItem: NSMenuItem?
+
+  @objc private func checkForUpdatesNow(_ sender: Any?) {
+    Task { await checkForUpdates(force: true) }
+  }
+
+  // Once a day on launch, quietly; from the menu, always, and it says so
+  // when you're up to date. Each new version is announced once; after that
+  // it stays in the Followspot menu.
+  @MainActor private func checkForUpdates(force: Bool) async {
+    guard let release = await Updates.check(force: force) else {
+      if force {
+        let alert = NSAlert()
+        alert.messageText = "Followspot \(Updates.currentVersion) is the latest version."
+        alert.informativeText = "Or GitHub couldn't be reached."
+        alert.runModal()
+      }
+      return
+    }
+    if updateItem == nil, let appMenu = NSApp.mainMenu?.items.first?.submenu {
+      let item = NSMenuItem(
+        title: "Download Followspot \(release.version)…", action: #selector(openRelease), keyEquivalent: "")
+      item.target = self
+      appMenu.insertItem(item, at: 1)
+      updateItem = item
+    }
+    updateItem?.representedObject = release.page
+    let announced = UserDefaults.standard.string(forKey: "announcedVersion")
+    guard force || announced != release.version else { return }
+    UserDefaults.standard.set(release.version, forKey: "announcedVersion")
+    let alert = NSAlert()
+    alert.messageText = "Followspot \(release.version) is available"
+    alert.informativeText = "You have \(Updates.currentVersion). Download the new disk image and drag it to Applications."
+    alert.addButton(withTitle: "Download")
+    alert.addButton(withTitle: "Later")
+    if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(release.page) }
+  }
+
+  @objc private func openRelease(_ sender: NSMenuItem) {
+    NSWorkspace.shared.open(sender.representedObject as? URL ?? Updates.releasesPage)
   }
 
   // MARK: Page bridge (see Bridge.swift and public/native.js)
@@ -389,6 +434,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     appMenu.addItem(
       withTitle: "About Followspot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
       keyEquivalent: "")
+    appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdatesNow), keyEquivalent: "")
+      .target = self
     appMenu.addItem(.separator())
     appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
     appMenu.addItem(.separator())

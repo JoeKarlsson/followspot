@@ -9,6 +9,7 @@ final class AppSettings: ObservableObject {
 
   enum Key: String {
     case keepAwake, hideFromCapture, floatOnTop, globalHotkeys, fastMode, vad, scriptsFolder, port, extraArgs
+    case checkForUpdates
   }
 
   private let defaults = UserDefaults.standard
@@ -22,6 +23,7 @@ final class AppSettings: ObservableObject {
   // Server.isLarge for the measurements.
   @Published var fastMode: Bool { didSet { store(.fastMode, fastMode) } }
   @Published var vad: Bool { didSet { store(.vad, vad) } }
+  @Published var checkForUpdates: Bool { didSet { store(.checkForUpdates, checkForUpdates) } }
   @Published var scriptsFolder: String { didSet { store(.scriptsFolder, scriptsFolder) } }
   // Port and extra flags only take effect on Apply, not per keystroke.
   @Published var port: Int
@@ -37,6 +39,7 @@ final class AppSettings: ObservableObject {
     _globalHotkeys = Published(initialValue: bool(.globalHotkeys, true))
     _fastMode = Published(initialValue: bool(.fastMode, true))
     _vad = Published(initialValue: bool(.vad, true))
+    _checkForUpdates = Published(initialValue: bool(.checkForUpdates, true))
     let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
     _scriptsFolder = Published(
       initialValue: UserDefaults.standard.string(forKey: Key.scriptsFolder.rawValue)
