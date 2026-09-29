@@ -1,17 +1,33 @@
 import AppKit
+import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let server = Server()
+  private let settings = AppSettings.shared
   private var prompter: PrompterWindow!
   private let download = ModelDownload()
   private var sheet: NSWindow?
   private var launch = 0  // which server start a readiness check belongs to
   private let recentMenu = NSMenu(title: "Open Recent")
   private let modelMenu = NSMenu(title: "Model")
+  private let hotKeys = HotKeys()
+  private let devices = DevicesModel()
+  private let modelList = ModelList()
+  private var settingsWindow: NSWindow?
+  private var listening = false
+  private var awake: NSObjectProtocol?  // held while listening keeps the display on
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     buildMenus()
-    prompter = PrompterWindow()
+    let bridge = Bridge { [weak self] type, body in try self?.handleBridge(type, body) }
+    prompter = PrompterWindow(bridge: bridge)
+    prompter.applyWindowOptions(settings)
+    devices.send = { [weak self] in self?.prompter.send($0) }
+    devices.fetch = { [weak self] in await self?.prompter.pageDevices() }
+    hotKeys.onAction = { [weak self] in self?.prompter.send(["type": "action", "name": $0]) }
+    if settings.globalHotkeys { hotKeys.register() }
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(settingChanged), name: AppSettings.changed, object: nil)
     prompter.showStatus("Starting…")
     prompter.window.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
@@ -29,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   }
 
   func applicationWillTerminate(_ notification: Notification) {
+    hotKeys.unregister()
     server.stop()
   }
 
@@ -73,8 +90,126 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   }
 
   private func restartServer() {
+    setListening(false)  // the page reloads, and so stops listening
     server.stop()
     startServer()
+  }
+
+  // MARK: Settings
+
+  @objc private func settingChanged(_ note: Notification) {
+    switch note.object as? AppSettings.Key {
+    case .keepAwake: setListening(listening)
+    case .hideFromCapture, .floatOnTop: prompter.applyWindowOptions(settings)
+    case .globalHotkeys: settings.globalHotkeys ? hotKeys.register() : hotKeys.unregister()
+    case .fastMode, .vad: restartServer()
+    default: break
+    }
+  }
+
+  // Holds off display sleep only while listening: a long take with no
+  // keyboard or mouse input would otherwise dim and lock the screen.
+  private func setListening(_ on: Bool) {
+    listening = on
+    if on && settings.keepAwake {
+      if awake == nil {
+        awake = ProcessInfo.processInfo.beginActivity(
+          options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Followspot is listening")
+      }
+    } else if let activity = awake {
+      ProcessInfo.processInfo.endActivity(activity)
+      awake = nil
+    }
+  }
+
+  @objc private func showSettings(_ sender: Any?) {
+    modelList.refresh()
+    if let settingsWindow {
+      settingsWindow.makeKeyAndOrderFront(nil)
+      Task { await devices.refresh() }
+      return
+    }
+    let view = SettingsView(
+      settings: settings, devices: devices, models: modelList,
+      actions: SettingsActions(
+        chooseModel: { [weak self] url in self?.useModel(url) },
+        downloadModel: { [weak self] in self?.showDownload() },
+        addModelFile: { [weak self] in self?.addModelFile(nil) },
+        chooseScriptsFolder: { [weak self] in self?.chooseScriptsFolder() },
+        restartServer: { [weak self] in
+          guard let self else { return }
+          _ = self.settings.applyServerOptions()
+          self.restartServer()
+        },
+        showLog: { NSWorkspace.shared.open(Paths.log) }))
+    let win = NSWindow(contentViewController: NSHostingController(rootView: view))
+    win.title = "Followspot Settings"
+    win.styleMask = [.titled, .closable]
+    win.isReleasedWhenClosed = false
+    win.center()
+    win.makeKeyAndOrderFront(nil)
+    settingsWindow = win
+  }
+
+  private func chooseScriptsFolder() {
+    let panel = NSOpenPanel()
+    panel.canChooseDirectories = true
+    panel.canChooseFiles = false
+    panel.canCreateDirectories = true
+    panel.directoryURL = settings.scriptsURL
+    panel.prompt = "Use Folder"
+    if panel.runModal() == .OK, let url = panel.url { settings.scriptsFolder = url.path }
+  }
+
+  // MARK: Page bridge (see Bridge.swift and public/native.js)
+
+  private func handleBridge(_ type: String, _ body: [String: Any]) throws -> Any? {
+    switch type {
+    case "listening":
+      setListening(body["on"] as? Bool ?? false)
+      return nil
+    case "scripts.list":
+      return scriptList()
+    case "scripts.open":
+      let url = URL(fileURLWithPath: body["path"] as? String ?? "")
+      guard Scripts.isOpenable(url) else { throw Scripts.error("That script isn't in the list.") }
+      openScript(url)
+      return nil
+    case "scripts.save":
+      guard let script = Staging.currentScript else {
+        throw Scripts.error("This script isn't saved in a file yet. Save it as a new script.")
+      }
+      try Scripts.save(body["text"] as? String ?? "", to: script)
+      return script.path
+    case "scripts.create":
+      let url = try Scripts.create(name: body["name"] as? String ?? "", text: body["text"] as? String ?? "")
+      openScript(url)
+      return url.path
+    case "scripts.reveal":
+      if let script = Staging.currentScript {
+        NSWorkspace.shared.activateFileViewerSelecting([script])
+      } else {
+        NSWorkspace.shared.open(Scripts.folder)
+      }
+      return nil
+    default:
+      throw Scripts.error("Unknown request \(type)")
+    }
+  }
+
+  private func scriptList() -> [String: Any] {
+    let current = Staging.currentScript?.standardizedFileURL
+    var scripts = Scripts.list().map { ["name": $0.lastPathComponent, "path": $0.path] }
+    // A script opened from elsewhere (⌘O) still shows, so it can be edited.
+    if let current, !scripts.contains(where: { $0["path"] == current.path }) {
+      scripts.insert(["name": current.lastPathComponent, "path": current.path], at: 0)
+    }
+    return [
+      "folder": Scripts.folder.path,
+      "folderName": Scripts.folder.lastPathComponent,
+      "current": current?.path ?? NSNull(),
+      "scripts": scripts,
+    ]
   }
 
   private func showError(_ title: String, detail: String? = nil) {
@@ -133,6 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let url = Models.installed.first(where: { Models.label(for: $0) == name }) {
           UserDefaults.standard.set(url.path, forKey: "model")
         }
+        self?.modelList.refresh()
         self?.restartServer()
       },
       onCancel: { [weak self] in self?.closeSheet() })
@@ -149,15 +285,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   }
 
   @objc private func chooseModel(_ sender: NSMenuItem) {
-    guard let url = sender.representedObject as? URL else { return }
+    if let url = sender.representedObject as? URL { useModel(url) }
+  }
+
+  private func useModel(_ url: URL) {
     UserDefaults.standard.set(url.path, forKey: "model")
+    modelList.refresh()
     restartServer()
   }
 
   @objc private func toggleVAD(_ sender: Any?) {
-    let on = UserDefaults.standard.object(forKey: "vad") as? Bool ?? true
-    UserDefaults.standard.set(!on, forKey: "vad")
-    restartServer()
+    settings.vad.toggle()  // restarts the server via settingChanged
+  }
+
+  // A model file from anywhere (another app's copy, a fine-tune): linked
+  // into the models folder, not copied, so it doesn't take the space twice.
+  @objc private func addModelFile(_ sender: Any?) {
+    let panel = NSOpenPanel()
+    panel.allowedContentTypes = [.init(filenameExtension: "bin")!]
+    panel.message = "Choose a whisper.cpp model (ggml-*.bin)"
+    guard panel.runModal() == .OK, let src = panel.url else { return }
+    var name = src.lastPathComponent
+    if !name.hasPrefix("ggml-") { name = "ggml-" + name }
+    let dest = Paths.models.appendingPathComponent(name)
+    do {
+      if !FileManager.default.fileExists(atPath: dest.path) {
+        try FileManager.default.createSymbolicLink(at: dest, withDestinationURL: src)
+      }
+      if !name.hasPrefix("ggml-silero-") { useModel(dest) } else { modelList.refresh() }
+    } catch {
+      NSAlert(error: error).runModal()
+    }
   }
 
   // MARK: View
@@ -172,6 +330,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
   @objc private func showLog(_ sender: Any?) {
     NSWorkspace.shared.open(Paths.log)
+  }
+
+  @objc private func showScriptsFolder(_ sender: Any?) {
+    try? FileManager.default.createDirectory(at: Scripts.folder, withIntermediateDirectories: true)
+    NSWorkspace.shared.open(Scripts.folder)
   }
 
   @objc private func showModelsFolder(_ sender: Any?) {
@@ -211,8 +374,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         withTitle: Models.vad == nil ? "Voice Activity Detection (not downloaded)" : "Voice Activity Detection",
         action: Models.vad == nil ? nil : #selector(toggleVAD), keyEquivalent: "")
       vad.target = self
-      vad.state = Models.vad != nil && (UserDefaults.standard.object(forKey: "vad") as? Bool ?? true) ? .on : .off
+      vad.state = Models.vad != nil && settings.vad ? .on : .off
       menu.addItem(withTitle: "Download Model…", action: #selector(downloadModel), keyEquivalent: "").target = self
+      menu.addItem(withTitle: "Add Model File…", action: #selector(addModelFile), keyEquivalent: "").target = self
       menu.addItem(withTitle: "Show Models Folder", action: #selector(showModelsFolder), keyEquivalent: "")
         .target = self
     }
@@ -225,6 +389,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     appMenu.addItem(
       withTitle: "About Followspot", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
       keyEquivalent: "")
+    appMenu.addItem(.separator())
+    appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
     appMenu.addItem(.separator())
     appMenu.addItem(withTitle: "Hide Followspot", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
     appMenu.addItem(
@@ -240,6 +406,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let recent = file.addItem(withTitle: "Open Recent", action: nil, keyEquivalent: "")
     recent.submenu = recentMenu
     recentMenu.delegate = self
+    file.addItem(withTitle: "Show Scripts Folder", action: #selector(showScriptsFolder), keyEquivalent: "")
+      .target = self
     file.addItem(.separator())
     file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
 

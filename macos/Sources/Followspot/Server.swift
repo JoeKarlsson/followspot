@@ -37,14 +37,11 @@ final class Server {
       "-nt",
       "-t", String(Server.threads),
     ]
-    // VAD stops Whisper inventing words during pauses; see the README.
-    if UserDefaults.standard.object(forKey: "vad") as? Bool ?? true, let vad = Models.vad {
-      args += ["--vad", "-vm", vad.path]
-    }
-    // The launcher's `-- flags`: `defaults write <id> extraArgs -array -ac 512`.
-    // defaults stores 512 as a number, so take any value, not just strings.
-    args += (UserDefaults.standard.array(forKey: "extraArgs") ?? []).map { "\($0)" }
+    args += Server.optionArgs(settings: AppSettings.shared, model: model, vad: Models.vad)
 
+    // One per line (paths can contain spaces), so CI can diff them against
+    // the launcher's: macos/check-args.sh.
+    try? args.joined(separator: "\n").write(to: Paths.argsFile, atomically: true, encoding: .utf8)
     FileManager.default.createFile(atPath: Paths.log.path, contents: nil)
     let log = try FileHandle(forWritingTo: Paths.log)
     log.write("whisper-server \(args.joined(separator: " "))\n\n".data(using: .utf8)!)
@@ -65,6 +62,27 @@ final class Server {
     try process.run()
     self.process = process
     try? String(process.processIdentifier).write(to: Paths.pidFile, atomically: true, encoding: .utf8)
+  }
+
+  // Flags beyond the launcher's fixed set: VAD when a model is present
+  // (stops Whisper inventing words during pauses), fast mode, and the
+  // launcher's `-- flags` equivalent.
+  static func optionArgs(settings: AppSettings, model: URL, vad: URL?) -> [String] {
+    var args: [String] = []
+    if settings.vad, let vad { args += ["--vad", "-vm", vad.path] }
+    let extra = AppSettings.storedExtraArgs
+    if settings.fastMode && isLarge(model) && !extra.contains("-ac") { args += ["-ac", "512"] }
+    return args + extra
+  }
+
+  // Fast mode only pays off on medium/large models. Measured on an M-series
+  // Mac, 3 fixture replays each: large-v3-turbo went from 168-201 ms median
+  // (max 226) to 66-75 ms (max 111); base.en stayed at ~33 ms median but its
+  // worst request doubled (675 -> 1234 ms), so small models run without it.
+  static func isLarge(_ model: URL) -> Bool {
+    // Resolve first: a linked model (Add Model File…) would report the link's size.
+    let size = (try? model.resolvingSymlinksInPath().resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    return size >= 1_000_000_000
   }
 
   // Polls the page until the model has loaded and the server answers.
