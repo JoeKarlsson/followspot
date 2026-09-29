@@ -84,7 +84,9 @@ struct SettingsView: View {
       speech.tabItem { Label("Speech", systemImage: "waveform") }
       advanced.tabItem { Label("Advanced", systemImage: "wrench.and.screwdriver") }
     }
-    .frame(width: 540)
+    // A grouped Form scrolls, so it has no height of its own: without a fixed
+    // size the window shrinks to just the tab bar.
+    .frame(width: 560, height: 500)
     .padding(.vertical, 8)
   }
 
