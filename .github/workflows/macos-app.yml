@@ -3,9 +3,13 @@ name: macOS app
 # Builds dist/Followspot.app and checks that its bundled whisper-server
 # serves the page and tracks a script. Not a required check: macOS runner
 # speed varies a lot (see ci.yml), and it only needs to catch a broken build.
+#
+# Every run uploads Followspot-<version>.dmg as a workflow artifact; pushing a
+# v* tag also attaches it to a GitHub Release.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
     paths:
       - "macos/**"
@@ -63,10 +67,13 @@ jobs:
           test -f models/ggml-base.en.bin || ./followspot download base.en
           test -f models/ggml-silero-v6.2.0.bin || ./followspot download vad
       - name: Launch the app
-        # The app finds the checkout's models/, and prefers the base model we
-        # just pinned. The runner has no usable GPU; -ac 512 as in ci.yml.
+        # A release build only looks in its own models folder, as on a user's
+        # Mac. The runner has no usable GPU; -ac 512 as in ci.yml.
         run: |
-          defaults write com.joekarlsson.followspot model "$PWD/models/ggml-base.en.bin"
+          models="$HOME/Library/Application Support/Followspot/models"
+          mkdir -p "$models"
+          cp models/ggml-base.en.bin models/ggml-silero-v6.2.0.bin "$models/"
+          defaults write com.joekarlsson.followspot model "$models/ggml-base.en.bin"
           defaults write com.joekarlsson.followspot extraArgs -array --no-gpu -ac 512
           open dist/Followspot.app
           for _ in $(seq 1 120); do
@@ -78,6 +85,10 @@ jobs:
         run: |
           curl -fs http://127.0.0.1:8177/ | grep -q "<title>"
           curl -fs http://127.0.0.1:8177/demo.md > /dev/null
+      - name: App passes the same whisper-server flags as ./followspot
+        run: |
+          macos/check-args.sh "$HOME/Library/Application Support/Followspot/server.args" \
+            -m models/ggml-base.en.bin -- --no-gpu -ac 512
       - name: Simulated read-through against the app's server
         run: |
           node tools/simulate.mjs examples/sample.md --audio test/fixtures/sample.wav --step 1 --port 8177
@@ -93,3 +104,28 @@ jobs:
       - name: Server log
         if: failure()
         run: cat "$HOME/Library/Application Support/Followspot/server.log" || true
+      - name: Package the disk image
+        run: macos/package.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Followspot-macOS
+          path: dist/Followspot-*.dmg
+          if-no-files-found: error
+
+  release:
+    name: Attach the disk image to the release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: Followspot-macOS
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" Followspot-*.dmg --repo "$GITHUB_REPOSITORY" \
+            --title "Followspot $GITHUB_REF_NAME" --generate-notes
