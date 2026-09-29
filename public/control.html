@@ -27,6 +27,20 @@
       <button type="button" data-action="mirror" class="toggle" data-on="mirror">Mirror</button>
       <button type="button" data-action="hud" class="toggle" id="hud">Status box</button>
     </nav>
+    <!-- Only in the macOS app, which can save files (see native.js). -->
+    <div id="scriptbar" hidden>
+      <label>Script <select id="scripts"></select></label>
+      <button type="button" id="edit" class="toggle" title="Edit the script here (⌘S saves)">Edit</button>
+      <button type="button" id="save" hidden>Save</button>
+      <button type="button" id="new">New…</button>
+      <form id="newform" hidden>
+        <input id="newname" placeholder="Name for the new script" autocomplete="off">
+        <button type="submit" id="create">Create</button>
+        <button type="button" id="newcancel">Cancel</button>
+      </form>
+      <button type="button" id="reveal" title="Show the script in Finder">Show in Finder</button>
+      <span id="savestate"></span>
+    </div>
   </header>
 
   <div id="offline" hidden>
@@ -34,7 +48,10 @@
   </div>
 
   <main>
-    <section id="pane"><div id="script"></div></section>
+    <section id="pane">
+      <div id="script"></div>
+      <textarea id="editor" hidden spellcheck="true" aria-label="Script text"></textarea>
+    </section>
 
     <aside id="panel">
       <h2>Display</h2>
