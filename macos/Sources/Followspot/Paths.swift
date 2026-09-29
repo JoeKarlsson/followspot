@@ -15,16 +15,23 @@ enum Paths {
   static let www = subdirectory("www")
   static let log = support.appendingPathComponent("server.log")
   static let pidFile = support.appendingPathComponent("server.pid")
+  static let argsFile = support.appendingPathComponent("server.args")  // for macos/check-args.sh
 
-  // The checkout this binary was built from, if it's still there. Lets a dev
-  // build reuse the repo's models/ and run straight from `swift run`.
-  static let repo: URL? = {
-    let url = URL(fileURLWithPath: #filePath)  // macos/Sources/Followspot/Paths.swift
-      .deletingLastPathComponent().deletingLastPathComponent()
-      .deletingLastPathComponent().deletingLastPathComponent()
-    let launcher = url.appendingPathComponent("followspot").path
-    return FileManager.default.fileExists(atPath: launcher) ? url : nil
-  }()
+  // The checkout a debug build (`swift run`) was built from, so it can use
+  // the repo's public/, models/ and whisper-server without bundling. Release
+  // builds (build.sh) never look outside the bundle and Application Support,
+  // so the same .app works on any Mac.
+  #if DEBUG
+    static let repo: URL? = {
+      let url = URL(fileURLWithPath: #filePath)  // macos/Sources/Followspot/Paths.swift
+        .deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().deletingLastPathComponent()
+      let launcher = url.appendingPathComponent("followspot").path
+      return FileManager.default.fileExists(atPath: launcher) ? url : nil
+    }()
+  #else
+    static let repo: URL? = nil
+  #endif
 
   // The page. Bundled by build.sh; the repo's public/ under `swift run`.
   static var publicDir: URL? {
@@ -37,13 +44,11 @@ enum Paths {
     }
   }
 
-  // Bundled next to the app binary; Homebrew's as a fallback for `swift run`.
+  // Bundled next to the app binary; the repo's build under `swift run`.
   static var whisperServer: URL? {
     let candidates = [
       Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/whisper-server"),
       repo?.appendingPathComponent("macos/.whisper/whisper-server"),
-      URL(fileURLWithPath: "/opt/homebrew/bin/whisper-server"),
-      URL(fileURLWithPath: "/usr/local/bin/whisper-server"),
     ]
     return candidates.compactMap { $0 }.first { FileManager.default.isExecutableFile(atPath: $0.path) }
   }

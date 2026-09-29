@@ -10,9 +10,14 @@ final class PrompterWindow: NSObject, WKUIDelegate, WKNavigationDelegate, NSWind
   private var controlWindow: NSWindow?
   private var controlWebView: WKWebView?
 
-  override init() {
+  init(bridge: Bridge) {
     let config = WKWebViewConfiguration()
+    bridge.install(in: config.userContentController)
     config.preferences.isElementFullscreenEnabled = true  // the page's F key
+    // Keep listening and scrolling at full speed while another app (the
+    // recorder) is frontmost or the window is covered. The default throttles
+    // timers and animation frames in background windows.
+    config.preferences.inactiveSchedulingPolicy = .none
     // The Control Window menu item clicks the page's button from native code,
     // which WebKit doesn't count as a user gesture.
     config.preferences.javaScriptCanOpenWindowsAutomatically = true
@@ -45,6 +50,38 @@ final class PrompterWindow: NSObject, WKUIDelegate, WKNavigationDelegate, NSWind
   func openControlWindow() {
     if let controlWindow { return controlWindow.makeKeyAndOrderFront(nil) }
     webView.evaluateJavaScript("document.getElementById('tb-controls').click()")
+  }
+
+  // Sends a control message on the page's BroadcastChannel (see Bridge).
+  func send(_ message: [String: Any]) {
+    guard isShowingPage, let data = try? JSONSerialization.data(withJSONObject: message),
+      let json = String(data: data, encoding: .utf8)
+    else { return }
+    webView.evaluateJavaScript("window.followspotApp?.send(\(json))")
+  }
+
+  // The page's saved settings and the devices it can see, for Settings.
+  // Device names only show once the page has used the mic or camera.
+  func pageDevices() async -> [String: Any]? {
+    guard isShowingPage else { return nil }
+    let js = """
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      let settings = {};
+      try { settings = JSON.parse(localStorage.getItem("followspot.settings") || "{}"); } catch {}
+      return {
+        devices: devices.map((d) => ({ kind: d.kind, id: d.deviceId, label: d.label })),
+        settings: JSON.stringify(settings),
+      };
+      """
+    return try? await webView.callAsyncJavaScript(js, contentWorld: .page) as? [String: Any]
+  }
+
+  // Float on top, and whether screen recordings can see the windows.
+  func applyWindowOptions(_ settings: AppSettings) {
+    for win in [window, controlWindow].compactMap({ $0 }) {
+      win.sharingType = settings.hideFromCapture ? .none : .readOnly
+    }
+    window.level = settings.floatOnTop ? .floating : .normal
   }
 
   func presentSheet<V: View>(_ view: V) -> NSWindow {
@@ -84,10 +121,33 @@ final class PrompterWindow: NSObject, WKUIDelegate, WKNavigationDelegate, NSWind
       title: "Followspot Controls", size: NSSize(width: 1000, height: 800), autosave: "Controls")
     win.contentView = popup
     win.delegate = self
+    win.sharingType = window.sharingType
     win.makeKeyAndOrderFront(nil)
     controlWindow = win
     controlWebView = popup
     return popup
+  }
+
+  // alert() and confirm(), e.g. "discard unsaved changes?" in the editor.
+  func webView(
+    _ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+    initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void
+  ) {
+    let alert = NSAlert()
+    alert.messageText = message
+    alert.runModal()
+    completionHandler()
+  }
+
+  func webView(
+    _ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+    initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void
+  ) {
+    let alert = NSAlert()
+    alert.messageText = message
+    alert.addButton(withTitle: "OK")
+    alert.addButton(withTitle: "Cancel")
+    completionHandler(alert.runModal() == .alertFirstButtonReturn)
   }
 
   func webViewDidClose(_ webView: WKWebView) {
