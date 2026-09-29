@@ -12,6 +12,13 @@ test("keyAction maps shortcuts, either case", () => {
   assert.equal(keyAction({ key: "ArrowDown" }), "paraNext");
 });
 
+test("keyAction maps presentation clicker keys", () => {
+  assert.equal(keyAction({ key: "PageDown" }), "paraNext");
+  assert.equal(keyAction({ key: "PageUp" }), "paraPrev");
+  assert.equal(keyAction({ key: "b" }), "listen");
+  assert.equal(keyAction({ key: "." }), "listen");
+});
+
 test("keyAction ignores unmapped keys and browser shortcuts", () => {
   assert.equal(keyAction({ key: "x" }), null);
   assert.equal(keyAction({ key: "toString" }), null);

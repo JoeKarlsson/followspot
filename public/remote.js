@@ -19,6 +19,13 @@ const KEYS = {
   ArrowLeft: "wordPrev",
   ArrowDown: "paraNext",
   ArrowUp: "paraPrev",
+  // Presentation clickers and foot pedals: forward/back send PageDown/PageUp,
+  // and the "blank screen" button sends b or a period.
+  PageDown: "paraNext",
+  PageUp: "paraPrev",
+  b: "listen",
+  B: "listen",
+  ".": "listen",
   r: "restart",
   R: "restart",
   Home: "restart",
