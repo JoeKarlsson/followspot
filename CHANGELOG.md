@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- A native macOS app (`macos/`). The prompter page runs in its own window, with a bundled static whisper-server (Metal), first-run model downloads, Open Script and Open Recent, a Model menu, and an app icon. Build it with `macos/build.sh --install`. CI builds it and smoke-tests the bundled server.
+
 ### Fixed
 
 - A short final phrase after a pause (e.g. "the script.") now finishes the script instead of leaving the highlight two words short.
