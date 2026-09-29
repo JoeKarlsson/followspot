@@ -12,10 +12,14 @@
   - Fast mode (`-ac 512`) is on by default for medium and large models. It measured about 3x faster on large-v3-turbo, but slower in the worst case on base.en, so small models run without it.
   - CI checks that the app passes whisper-server the same flags as `./followspot`.
 - The prompter remembers your place in each script (the 50 most recent), recognizing a script by its opening words and finding your spot again after edits. R starts over.
+- The first-run script is now a short spoken guide: how following works, how to format scripts (hidden notes, stage directions, the ignored header and footer), the main keys, and a practice script at the end. The README GIF records from `public/recipe.md` instead.
+- macOS app: the control window's editor asks before closing, quitting, or switching scripts with unsaved edits, and won't overwrite a file that changed in another editor without asking. `macos/make-signing-identity.sh` gives local builds a fixed signature, so macOS stops asking for camera, microphone, and Documents access after every rebuild. The app also checks GitHub for new versions once a day.
 - Presentation clickers and foot pedals: Page Up / Page Down move by paragraph, and B or `.` (a clicker's "blank screen" button) toggles listening.
 - The settings dialog lists microphones and cameras as soon as the page can see their names, instead of only after the next start.
 
 ### Fixed
+
+- The control window no longer flickers to "Not connected" every couple of seconds while the prompter is idle. The prompter now sends its state at least once a second.
 
 - A short final phrase after a pause (e.g. "the script.") now finishes the script instead of leaving the highlight two words short.
 
