@@ -4,3 +4,6 @@ public/current.md
 .tmp/
 node_modules/
 .DS_Store
+dist/
+macos/.build/
+macos/.whisper/
