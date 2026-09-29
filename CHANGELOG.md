@@ -11,6 +11,7 @@
   - Model downloads are verified against Hugging Face's SHA-256 and resume after a dropped connection.
   - Fast mode (`-ac 512`) is on by default for medium and large models. It measured about 3x faster on large-v3-turbo, but slower in the worst case on base.en, so small models run without it.
   - CI checks that the app passes whisper-server the same flags as `./followspot`.
+- The prompter remembers your place in each script (the 50 most recent), recognizing a script by its opening words and finding your spot again after edits. R starts over.
 - Presentation clickers and foot pedals: Page Up / Page Down move by paragraph, and B or `.` (a clicker's "blank screen" button) toggles listening.
 - The settings dialog lists microphones and cameras as soon as the page can see their names, instead of only after the next start.
 

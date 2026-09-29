@@ -83,6 +83,7 @@ Rebuilding changes the app's ad-hoc signature, so macOS asks for microphone and 
 - **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page. Run `./followspot` with no script and you get a short demo script to try.
 - **Move the mouse** to bring up the control bar: listen, text size, column width, top and bottom margins, reading line, mirror, fullscreen, and more settings. It hides itself (and the pointer) after a moment.
 - **Click any word** to jump there, for re-takes.
+- **It remembers your place** in each script, so reopening one (or relaunching) picks up where you stopped, even if you've edited it since. Press **R** to start over. A script you'd finished starts from the top.
 - **On a beam-splitter prompter** (Elgato Prompter and similar), drag the window to the prompter's display, go fullscreen, and turn on Mirror if the text reads backward. The text column is centered on the lens. Use the top and bottom margins to keep the text in the part of the glass you read from, and move the reading line until the current line sits at lens height.
 
 ### Keys
