@@ -7,6 +7,8 @@ let package = Package(
   name: "Followspot",
   platforms: [.macOS(.v14)],
   targets: [
+    // Tests aren't a SwiftPM target: Swift Testing's macros (like SwiftUI's)
+    // need Xcode. macos/test.sh compiles them with the app's non-UI sources.
     .executableTarget(name: "Followspot", path: "Sources/Followspot")
   ]
 )
