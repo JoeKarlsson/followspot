@@ -69,6 +69,8 @@ The build is ad-hoc signed, so it's meant for the Mac that built it. On another 
 | Space | Start / pause listening |
 | ← / → | Back / forward one word |
 | ↑ / ↓ | Previous / next paragraph |
+| Page Up / Page Down | Previous / next paragraph (presentation clickers, foot pedals) |
+| B or . | Start / pause listening (a clicker's "blank screen" button) |
 | R | Back to the top |
 | M | Mirror |
 | + / − | Text size |
