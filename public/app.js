@@ -1,5 +1,6 @@
 import { align, buildTokens, parseScript, tokenizeHeard } from "./align.js";
 import { createDecimator, createRing, encodeWav, RATE, rms } from "./audio.js";
+import { rememberPosition, restorePosition } from "./positions.js";
 import { applySetting, CHANNEL, keyAction } from "./remote.js";
 
 const $ = (id) => document.getElementById(id);
@@ -127,7 +128,40 @@ function loadText(md) {
   scriptText = md;
   if (first) cursor = 0;
   render(md);
+  // A script you've read from before picks up where you left off.
+  if (first) {
+    const at = restorePosition(loadPositions(), tokens);
+    if (at > 0) {
+      moveTo(at);
+      savedCursor = at;
+      setStatus("Resumed where you left off · R starts over", "");
+    }
+  }
   channel.postMessage({ type: "script", text: md });
+}
+
+// ---------- remembered positions ----------
+
+let savedCursor = 0;
+
+function loadPositions() {
+  try {
+    return JSON.parse(localStorage.getItem("followspot.positions") || "{}");
+  } catch {
+    return {};
+  }
+}
+
+// Checked once a second; written only when the confirmed place moved.
+function savePosition() {
+  if (!tokens.length || cursor === savedCursor) return;
+  savedCursor = cursor;
+  try {
+    localStorage.setItem(
+      "followspot.positions",
+      JSON.stringify(rememberPosition(loadPositions(), tokens, cursor)),
+    );
+  } catch {}
 }
 
 let dropped = false; // a dropped file wins over current.md until reload
@@ -424,6 +458,12 @@ function moveTo(tokenIndex) {
   lastMatch = performance.now();
 }
 
+// Back to the top. Also clears "Resumed where you left off" while paused.
+function restart() {
+  moveTo(0);
+  if (!listening) setStatus("Paused", "");
+}
+
 function jumpParagraph(dir) {
   if (!paraStarts.length) return;
   const cur = Math.floor(display);
@@ -468,7 +508,7 @@ function toggleFullscreen() {
 // window sends these same names.
 const ACTIONS = {
   listen: toggleListening,
-  restart: () => moveTo(0),
+  restart: restart,
   wordNext: () => moveTo(Math.floor(display) + 1),
   wordPrev: () => moveTo(Math.floor(display) - 1),
   paraNext: () => jumpParagraph(1),
@@ -571,7 +611,7 @@ $("tb-listen").addEventListener("click", (e) => {
 });
 $("tb-restart").addEventListener("click", (e) => {
   e.currentTarget.blur();
-  moveTo(0);
+  restart();
 });
 $("tb-mirror").addEventListener("click", (e) => {
   e.currentTarget.blur();
@@ -657,6 +697,8 @@ await fetchScript();
 setInterval(fetchScript, 2000); // picks up edits to the script file live
 setInterval(tick, 250);
 setInterval(publish, 100);
+setInterval(savePosition, 1000);
+window.addEventListener("pagehide", savePosition);
 setInterval(() => {
   $("level").style.width = `${Math.min(100, level * 800)}%`;
 }, 50);
