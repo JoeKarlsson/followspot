@@ -41,6 +41,8 @@ jobs:
       - name: Build whisper-server (static, Metal embedded)
         if: steps.whisper-cache.outputs.cache-hit != 'true'
         run: macos/build-whisper.sh
+      - name: Swift checks (download resume and checksums, flags, versions)
+        run: macos/test.sh
       - name: Build Followspot.app
         run: macos/build.sh
       - name: Check the bundle

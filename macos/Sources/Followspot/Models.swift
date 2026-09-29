@@ -27,15 +27,13 @@ enum Models {
     return URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-\(name).bin")!
   }
 
-  private static var dirs: [URL] {
+  static var dirs: [URL] {
     [Paths.models, Paths.repo?.appendingPathComponent("models")].compactMap { $0 }
   }
 
   // Largest first, like the launcher. Screen Studio's medium ranks above
   // small/base so a quick base.en download doesn't silently downgrade.
-  private static var ranked: [URL] {
-    let screenStudio = FileManager.default.homeDirectoryForCurrentUser
-      .appendingPathComponent("Library/Application Support/Screen Studio/models/ggml-medium.bin")
+  private static func ranked(_ dirs: [URL], screenStudio: URL) -> [URL] {
     var out: [URL] = []
     for name in ["large-v3-turbo", "medium.en", "medium"] {
       out += dirs.map { $0.appendingPathComponent("ggml-\(name).bin") }
@@ -50,6 +48,12 @@ enum Models {
   // Every model on disk, for the Model menu: the ranked ones plus anything
   // else dropped into a models folder (tiny.en, a custom fine-tune, ...).
   static var installed: [URL] {
+    let screenStudio = FileManager.default.homeDirectoryForCurrentUser
+      .appendingPathComponent("Library/Application Support/Screen Studio/models/ggml-medium.bin")
+    return installed(in: dirs, screenStudio: screenStudio)
+  }
+
+  static func installed(in dirs: [URL], screenStudio: URL) -> [URL] {
     var seen = Set<String>()
     var out: [URL] = []
     let extras = dirs.flatMap { dir in
@@ -58,7 +62,7 @@ enum Models {
         .filter { !$0.lastPathComponent.hasPrefix("ggml-silero-") }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
-    for url in ranked + extras where FileManager.default.fileExists(atPath: url.path) {
+    for url in ranked(dirs, screenStudio: screenStudio) + extras where FileManager.default.fileExists(atPath: url.path) {
       if seen.insert(url.standardizedFileURL.path).inserted { out.append(url) }
     }
     return out
@@ -121,7 +125,8 @@ final class ModelDownload: NSObject, ObservableObject, URLSessionTaskDelegate {
     Task {
       do {
         let expected = try await self.expected(for: name)
-        let file = try await self.download(name, expected: expected)
+        let part = Paths.models.appendingPathComponent("ggml-\(name).bin.part")
+        let file = try await self.download(from: Models.url(for: name), to: part, label: name)
         await MainActor.run { self.status = "Verifying \(name)…" }
         try await Task.detached { try Self.verify(file, expected) }.value
         let dest = Paths.models.appendingPathComponent("ggml-\(name).bin")
@@ -155,11 +160,19 @@ final class ModelDownload: NSObject, ObservableObject, URLSessionTaskDelegate {
     let session = URLSession(configuration: .ephemeral, delegate: self, delegateQueue: nil)
     defer { session.finishTasksAndInvalidate() }
     let (_, response) = try await session.data(for: request)
-    guard let http = response as? HTTPURLResponse,
-      let tag = http.value(forHTTPHeaderField: "x-linked-etag"),
+    guard let http = response as? HTTPURLResponse, let expected = Self.expected(from: http) else {
+      throw Self.failure("Couldn't get the checksum for \(name) from Hugging Face.")
+    }
+    return expected
+  }
+
+  static func expected(from http: HTTPURLResponse) -> Expected? {
+    guard let tag = http.value(forHTTPHeaderField: "x-linked-etag"),
       let size = Int64(http.value(forHTTPHeaderField: "x-linked-size") ?? "")
-    else { throw Self.failure("Couldn't get the checksum for \(name) from Hugging Face.") }
-    return Expected(sha256: tag.trimmingCharacters(in: CharacterSet(charactersIn: "\"W/")).lowercased(), size: size)
+    else { return nil }
+    let sha = tag.trimmingCharacters(in: CharacterSet(charactersIn: "\"W/")).lowercased()
+    guard sha.count == 64, sha.allSatisfy(\.isHexDigit) else { return nil }
+    return Expected(sha256: sha, size: size)
   }
 
   func urlSession(
@@ -170,13 +183,12 @@ final class ModelDownload: NSObject, ObservableObject, URLSessionTaskDelegate {
   }
 
   // Downloads to a .part file next to the models, resuming on failure.
-  private func download(_ name: String, expected: Expected) async throws -> URL {
-    let part = Paths.models.appendingPathComponent("ggml-\(name).bin.part")
+  func download(from url: URL, to part: URL, label name: String) async throws -> URL {
     var resumeData: Data?
     for attempt in 1...4 {
       do {
         return try await withCheckedThrowingContinuation { cont in
-          let handler: (URL?, URLResponse?, Error?) -> Void = { tmp, response, error in
+          let handler: @Sendable (URL?, URLResponse?, Error?) -> Void = { tmp, response, error in
             if let error { return cont.resume(throwing: error) }
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
               return cont.resume(throwing: Self.failure("Download of \(name) failed (HTTP \(http.statusCode))."))
@@ -192,7 +204,7 @@ final class ModelDownload: NSObject, ObservableObject, URLSessionTaskDelegate {
           }
           let task =
             resumeData.map { URLSession.shared.downloadTask(withResumeData: $0, completionHandler: handler) }
-            ?? URLSession.shared.downloadTask(with: Models.url(for: name), completionHandler: handler)
+            ?? URLSession.shared.downloadTask(with: url, completionHandler: handler)
           DispatchQueue.main.async {
             self.status = attempt == 1 ? "Downloading \(name)…" : "Resuming \(name)…"
             self.observation = task.progress.observe(\.fractionCompleted) { progress, _ in
@@ -211,7 +223,7 @@ final class ModelDownload: NSObject, ObservableObject, URLSessionTaskDelegate {
     throw Self.failure("Download of \(name) failed.")
   }
 
-  private static func verify(_ file: URL, _ expected: Expected) throws {
+  static func verify(_ file: URL, _ expected: Expected) throws {
     let size = (try FileManager.default.attributesOfItem(atPath: file.path)[.size] as? NSNumber)?.int64Value ?? -1
     guard size == expected.size else {
       try? FileManager.default.removeItem(at: file)

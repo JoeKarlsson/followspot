@@ -37,7 +37,10 @@ final class Server {
       "-nt",
       "-t", String(Server.threads),
     ]
-    args += Server.optionArgs(settings: AppSettings.shared, model: model, vad: Models.vad)
+    let settings = AppSettings.shared
+    args += Server.optionArgs(
+      model: model, vadModel: Models.vad, vad: settings.vad, fastMode: settings.fastMode,
+      extra: AppSettings.storedExtraArgs)
 
     // One per line (paths can contain spaces), so CI can diff them against
     // the launcher's: macos/check-args.sh.
@@ -67,11 +70,10 @@ final class Server {
   // Flags beyond the launcher's fixed set: VAD when a model is present
   // (stops Whisper inventing words during pauses), fast mode, and the
   // launcher's `-- flags` equivalent.
-  static func optionArgs(settings: AppSettings, model: URL, vad: URL?) -> [String] {
+  static func optionArgs(model: URL, vadModel: URL?, vad: Bool, fastMode: Bool, extra: [String]) -> [String] {
     var args: [String] = []
-    if settings.vad, let vad { args += ["--vad", "-vm", vad.path] }
-    let extra = AppSettings.storedExtraArgs
-    if settings.fastMode && isLarge(model) && !extra.contains("-ac") { args += ["-ac", "512"] }
+    if vad, let vadModel { args += ["--vad", "-vm", vadModel.path] }
+    if fastMode && isLarge(model) && !extra.contains("-ac") { args += ["-ac", "512"] }
     return args + extra
   }
 

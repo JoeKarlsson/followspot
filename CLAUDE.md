@@ -10,6 +10,7 @@ Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double
 ./followspot download base.en           # fetch a model into models/ (gitignored)
 ./followspot download vad               # Silero VAD; auto-enabled when present (--no-vad to skip)
 macos/build-whisper.sh && macos/build.sh --install   # native app → /Applications/Followspot.app
+macos/test.sh                           # Swift checks for the app's non-UI code (plain swiftc, no Xcode needed)
 macos/package.sh                        # dist/Followspot-<version>.dmg (CI does this on every push)
 macos/check-args.sh "$HOME/Library/Application Support/Followspot/server.args" -m models/<m>.bin -- <flags>  # app vs launcher flags
 macos/icon/make-icns.sh [png]           # regenerate the app icon (drawn in make-icon.swift, or from a PNG)
@@ -53,7 +54,7 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - The recorder worklet is routed through a zero-gain node to `destination` so engines that only process pulled nodes still call `process()`. Don't "clean up" that connection.
 - Headless Chrome (`--dump-dom`, `--screenshot`) is the quickest way to check the page renders without errors. `requestAnimationFrame` barely runs there, which is why scrolling snaps on load (`snap = true`) rather than easing.
 - SwiftPM owns `macos/.build/`, and anything else in there makes `swift build` fail with no error output. That's why the whisper.cpp checkout lives in `macos/.whisper/`.
-- With only the Command Line Tools (no Xcode), SwiftUI's `@State` macro plugin is missing, so it fails to compile. The app keeps view state in `ObservableObject`s instead.
+- With only the Command Line Tools (no Xcode), Swift macro plugins are missing: SwiftUI's `@State` and Swift Testing's `@Test`/`#expect` fail to compile. The app keeps view state in `ObservableObject`s, and `macos/test.sh` compiles `Tests/Checks.swift` with the Foundation-only sources and a tiny `expect()` runner. A source file the checks need must stay free of AppKit/SwiftUI.
 - The app's `localStorage` is keyed by origin, and the origin includes the port. That's why the port is fixed (8177). Changing it resets the page's saved settings in the app.
 - `defaults write … -array` stores `--` literally and numbers as numbers. `extraArgs` is read as `[Any]`, so don't switch it back to `stringArray`.
 - Fast mode (`-ac 512`) only applies to models of 1 GB and up: measured 3x faster on large-v3-turbo, but base.en's worst request doubled. Resolve symlinks before checking model size (linked models otherwise read as a few bytes).
