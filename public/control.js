@@ -1,4 +1,5 @@
 import { parseScript } from "./align.js";
+import { appBridge, NEW_SCRIPT, scriptFileName } from "./native.js";
 import { CHANNEL, keyAction, LIMITS } from "./remote.js";
 
 // Remote control for the prompter, meant for a second screen. It holds no
@@ -91,8 +92,10 @@ function applyState(s) {
 }
 
 channel.onmessage = ({ data: m }) => {
-  if (m?.type === "script") renderScript(m.text);
-  else if (m?.type === "state") applyState(m);
+  if (m?.type === "script") {
+    renderScript(m.text);
+    scriptArrived(m.text);
+  } else if (m?.type === "state") applyState(m);
 };
 
 // If the prompter goes away (closed, reloading), say so and keep asking.
@@ -144,13 +147,148 @@ for (const sel of document.querySelectorAll("select[data-kind]")) sel.addEventLi
 navigator.mediaDevices.addEventListener("devicechange", listDevices);
 
 document.addEventListener("keydown", (e) => {
-  if (["INPUT", "SELECT"].includes(e.target.tagName)) return;
+  if (app && e.metaKey && e.key === "s") {
+    e.preventDefault();
+    saveScript();
+    return;
+  }
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return;
   const action = keyAction(e);
   // Fullscreen and the settings dialog only make sense in the prompter.
   if (!action || action === "fullscreen" || action === "settings") return;
   e.preventDefault();
   send({ type: "action", name: action });
 });
+
+// ---------- scripts (macOS app only) ----------
+
+// The app lists the scripts folder, opens a script (the prompter reloads
+// with it), and saves the editor's text to the open script's file. The
+// prompter then picks the change up like any other edit to the file.
+const app = appBridge();
+let scriptText = null; // latest text the prompter is showing
+let currentPath = null; // its file, or null for the demo or a dropped file
+let editing = false;
+let dirty = false;
+let newFor = "new"; // what the name form is for: "new" or "saveAs"
+
+function note(text, cls = "") {
+  $("savestate").textContent = text;
+  $("savestate").className = cls;
+}
+
+function setDirty(value) {
+  dirty = value;
+  if (dirty) note("Unsaved changes", "dirty");
+}
+
+async function call(type, args) {
+  try {
+    return await app(type, args);
+  } catch (err) {
+    note(err.message ?? String(err), "err");
+    throw err;
+  }
+}
+
+async function refreshScripts() {
+  const { scripts, current, folderName } = await call("scripts.list");
+  currentPath = current;
+  const sel = $("scripts");
+  sel.textContent = "";
+  if (!current) sel.append(new Option("Demo or dropped script (not saved)", ""));
+  for (const s of scripts) sel.append(new Option(s.name, s.path));
+  if (!scripts.length) {
+    const empty = new Option(`No scripts in ${folderName} yet: use New…`, "__none");
+    empty.disabled = true;
+    sel.append(empty);
+  }
+  sel.value = current ?? "";
+}
+
+function scriptArrived(text) {
+  scriptText = text;
+  if (!app) return;
+  if (!dirty && $("editor").value !== text) $("editor").value = text;
+  refreshScripts().catch(() => {});
+}
+
+function setEditing(on) {
+  editing = on;
+  $("edit").classList.toggle("on", on);
+  $("save").hidden = !on;
+  $("script").hidden = on;
+  $("editor").hidden = !on;
+  $("pane").classList.toggle("editing", on);
+  if (on) {
+    if (!dirty) $("editor").value = scriptText ?? "";
+    $("editor").focus();
+  }
+}
+
+async function saveScript() {
+  if (!editing) return;
+  if (!currentPath) return askName("saveAs");
+  await call("scripts.save", { text: $("editor").value });
+  setDirty(false);
+  note("Saved. The prompter updates in a moment.");
+}
+
+function askName(purpose) {
+  newFor = purpose;
+  $("newform").hidden = false;
+  $("new").hidden = true;
+  $("create").textContent = purpose === "saveAs" ? "Save" : "Create";
+  $("newname").value = "";
+  $("newname").focus();
+}
+
+function closeNameForm() {
+  $("newform").hidden = true;
+  $("new").hidden = false;
+}
+
+if (app) {
+  $("scriptbar").hidden = false;
+  $("edit").addEventListener("click", () => setEditing(!editing));
+  $("save").addEventListener("click", () => saveScript().catch(() => {}));
+  $("editor").addEventListener("input", () => setDirty(true));
+  $("new").addEventListener("click", () => {
+    if (dirty && !confirm("Discard unsaved changes to this script?")) return;
+    askName("new");
+  });
+  $("newcancel").addEventListener("click", closeNameForm);
+  $("reveal").addEventListener("click", () => call("scripts.reveal").catch(() => {}));
+  $("scripts").addEventListener("focus", () => refreshScripts().catch(() => {}));
+  $("scripts").addEventListener("change", async (e) => {
+    const path = e.target.value;
+    if (!path || path === currentPath) return;
+    if (dirty && !confirm("Discard unsaved changes to this script?")) {
+      e.target.value = currentPath ?? "";
+      return;
+    }
+    setDirty(false);
+    note("");
+    await call("scripts.open", { path }).catch(() => {});
+  });
+  $("newform").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = scriptFileName($("newname").value);
+    if (!name) return note("Use a plain name, like “Launch video”.", "err");
+    const text = newFor === "saveAs" ? $("editor").value : NEW_SCRIPT;
+    try {
+      await call("scripts.create", { name, text });
+    } catch {
+      return;
+    }
+    closeNameForm();
+    setDirty(false);
+    note(`Created ${name}.`);
+    $("editor").value = text;
+    if (!editing) setEditing(true);
+  });
+  refreshScripts().catch(() => {});
+}
 
 // ---------- boot ----------
 

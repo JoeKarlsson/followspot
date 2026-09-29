@@ -492,7 +492,12 @@ document.addEventListener("keydown", (e) => {
   ACTIONS[action]();
 });
 
-function openSettings() {
+async function openSettings() {
+  // Fill the pickers now if this page may already see device names (it has
+  // used the mic or camera before), not only after the next start.
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  if (devices.some((d) => d.kind === "audioinput" && d.label)) await populateDevices("audioinput", "mic", "");
+  if (devices.some((d) => d.kind === "videoinput" && d.label)) await populateDevices("videoinput", "cam", "");
   for (const key of Object.keys(DEFAULT_SETTINGS)) {
     const el = $(key);
     if (!el) continue;
