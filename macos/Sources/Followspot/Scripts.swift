@@ -33,8 +33,42 @@ enum Scripts {
     return url
   }
 
-  static func save(_ text: String, to url: URL) throws {
+  enum SaveResult { case saved, conflict }
+
+  // Refuses (conflict) if the file no longer holds `base`, the text the edits
+  // started from: someone changed it in another editor meanwhile. `force`
+  // overwrites anyway, after the page has asked.
+  static func save(_ text: String, to url: URL, base: String?, force: Bool) throws -> SaveResult {
+    if !force, let base, let disk = try? String(contentsOf: url, encoding: .utf8), disk != base {
+      return .conflict
+    }
     try Data(text.utf8).write(to: url, options: .atomic)
+    return .saved
+  }
+
+  // Replies to the page (see Bridge.swift). Paths are spelled out with
+  // path(percentEncoded:) on purpose: in an untyped dictionary, `url.path`
+  // can resolve to that method instead of the property, and WebKit then drops
+  // the whole reply.
+  static func saveReply(_ result: SaveResult, _ url: URL) -> [String: Any] {
+    result == .conflict ? ["conflict": true] : ["saved": url.path(percentEncoded: false)]
+  }
+
+  static func listReply(current: URL?) -> [String: Any] {
+    let current = current?.standardizedFileURL
+    var scripts: [[String: String]] = list().map {
+      ["name": $0.lastPathComponent, "path": $0.path(percentEncoded: false)]
+    }
+    // A script opened from elsewhere (⌘O) still shows, so it can be edited.
+    if let current, !scripts.contains(where: { $0["path"] == current.path(percentEncoded: false) }) {
+      scripts.insert(["name": current.lastPathComponent, "path": current.path(percentEncoded: false)], at: 0)
+    }
+    return [
+      "folder": folder.path(percentEncoded: false),
+      "folderName": folder.lastPathComponent,
+      "current": current.map { $0.path(percentEncoded: false) } ?? NSNull(),
+      "scripts": scripts,
+    ]
   }
 
   // Paths the page may ask to open: ones it was shown, or the open one.

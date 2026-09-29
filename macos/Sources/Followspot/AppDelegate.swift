@@ -54,6 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     true
   }
 
+  // Quitting with unsaved edits in the control window asks first.
+  func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+    guard let prompter, prompter.hasControlWindow else { return .terminateNow }
+    prompter.confirmUnsavedEdits { ok in NSApp.reply(toApplicationShouldTerminate: ok) }
+    return .terminateLater
+  }
+
   // Finder's Open With, or a file dropped on the Dock icon. Can arrive
   // before launch finishes; Staging.prepare() then links it from defaults.
   func application(_ application: NSApplication, open urls: [URL]) {
@@ -214,22 +221,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       setListening(body["on"] as? Bool ?? false)
       return nil
     case "scripts.list":
-      return scriptList()
+      return Scripts.listReply(current: Staging.currentScript)
     case "scripts.open":
       let url = URL(fileURLWithPath: body["path"] as? String ?? "")
       guard Scripts.isOpenable(url) else { throw Scripts.error("That script isn't in the list.") }
-      openScript(url)
+      openScript(url, askFirst: false)  // the control window already asked
       return nil
     case "scripts.save":
-      guard let script = Staging.currentScript else {
-        throw Scripts.error("This script isn't saved in a file yet. Save it as a new script.")
-      }
-      try Scripts.save(body["text"] as? String ?? "", to: script)
-      return script.path
+      // The file the edits belong to, which may no longer be the open one.
+      let path = body["path"] as? String
+      guard let script = path.map({ URL(fileURLWithPath: $0) }) ?? Staging.currentScript,
+        Scripts.isOpenable(script)
+      else { throw Scripts.error("This script isn't saved in a file yet. Save it as a new script.") }
+      let result = try Scripts.save(
+        body["text"] as? String ?? "", to: script, base: body["base"] as? String, force: body["force"] as? Bool == true)
+      return Scripts.saveReply(result, script)
     case "scripts.create":
       let url = try Scripts.create(name: body["name"] as? String ?? "", text: body["text"] as? String ?? "")
-      openScript(url)
-      return url.path
+      openScript(url, askFirst: false)
+      return url.path(percentEncoded: false)
     case "scripts.reveal":
       if let script = Staging.currentScript {
         NSWorkspace.shared.activateFileViewerSelecting([script])
@@ -240,21 +250,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     default:
       throw Scripts.error("Unknown request \(type)")
     }
-  }
-
-  private func scriptList() -> [String: Any] {
-    let current = Staging.currentScript?.standardizedFileURL
-    var scripts = Scripts.list().map { ["name": $0.lastPathComponent, "path": $0.path] }
-    // A script opened from elsewhere (⌘O) still shows, so it can be edited.
-    if let current, !scripts.contains(where: { $0["path"] == current.path }) {
-      scripts.insert(["name": current.lastPathComponent, "path": current.path], at: 0)
-    }
-    return [
-      "folder": Scripts.folder.path,
-      "folderName": Scripts.folder.lastPathComponent,
-      "current": current?.path ?? NSNull(),
-      "scripts": scripts,
-    ]
   }
 
   private func showError(_ title: String, detail: String? = nil) {
@@ -268,7 +263,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
   // MARK: Scripts
 
-  private func openScript(_ url: URL) {
+  // Menu, Finder and Dock opens check the control window for unsaved edits
+  // first; the control window's own picker asks for itself.
+  private func openScript(_ url: URL, askFirst: Bool = true) {
+    if askFirst, let prompter {
+      return prompter.confirmUnsavedEdits { [weak self] ok in
+        if ok { self?.openScript(url, askFirst: false) }
+      }
+    }
     do {
       try Staging.setScript(url)
       NSDocumentController.shared.noteNewRecentDocumentURL(url)

@@ -659,8 +659,9 @@ window.addEventListener("drop", async (e) => {
 
 // control.html can drive the prompter from another screen. This window stays
 // the source of truth: it answers commands and publishes its state whenever
-// something changed (checked every 100 ms, sent only on a difference).
+// something changed (checked every 100 ms), and at least once a second.
 let lastState = "";
+let lastPost = 0;
 
 function publish(force = false) {
   const state = {
@@ -676,8 +677,11 @@ function publish(force = false) {
     words: wordEls.length,
   };
   const json = JSON.stringify(state);
-  if (!force && json === lastState) return;
+  // Unchanged state still goes out once a second: the control window treats
+  // two seconds of silence as the prompter having closed.
+  if (!force && json === lastState && performance.now() - lastPost < 1000) return;
   lastState = json;
+  lastPost = performance.now();
   channel.postMessage(state);
 }
 

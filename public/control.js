@@ -93,8 +93,9 @@ function applyState(s) {
 
 channel.onmessage = ({ data: m }) => {
   if (m?.type === "script") {
+    if (m.text === scriptText) return; // a resend after reconnecting
     renderScript(m.text);
-    scriptArrived(m.text);
+    scriptArrived(m.text).catch(() => {});
   } else if (m?.type === "state") applyState(m);
 };
 
@@ -165,12 +166,21 @@ document.addEventListener("keydown", (e) => {
 // The app lists the scripts folder, opens a script (the prompter reloads
 // with it), and saves the editor's text to the open script's file. The
 // prompter then picks the change up like any other edit to the file.
+//
+// Edits remember which file and which text they started from. Saving goes to
+// that file even if the prompter has moved on, and the app refuses to
+// overwrite it if it changed on disk in the meantime (another editor), unless
+// you say so.
 const app = appBridge();
 let scriptText = null; // latest text the prompter is showing
 let currentPath = null; // its file, or null for the demo or a dropped file
+let editPath = null; // the file the editor's text belongs to
+let baseText = null; // the text the current edits started from
 let editing = false;
 let dirty = false;
 let newFor = "new"; // what the name form is for: "new" or "saveAs"
+
+const baseName = (path) => path?.split("/").pop() ?? "this script";
 
 function note(text, cls = "") {
   $("savestate").textContent = text;
@@ -206,11 +216,20 @@ async function refreshScripts() {
   sel.value = current ?? "";
 }
 
-function scriptArrived(text) {
+function loadEditor(text) {
+  $("editor").value = text;
+  baseText = text;
+  editPath = currentPath;
+}
+
+async function scriptArrived(text) {
   scriptText = text;
   if (!app) return;
-  if (!dirty && $("editor").value !== text) $("editor").value = text;
-  refreshScripts().catch(() => {});
+  await refreshScripts().catch(() => {});
+  if (!dirty) loadEditor(text);
+  else if (currentPath === editPath && text !== baseText) {
+    note("The file changed on disk too. Saving will ask before replacing it.", "dirty");
+  }
 }
 
 function setEditing(on) {
@@ -221,17 +240,38 @@ function setEditing(on) {
   $("editor").hidden = !on;
   $("pane").classList.toggle("editing", on);
   if (on) {
-    if (!dirty) $("editor").value = scriptText ?? "";
+    if (!dirty) loadEditor(scriptText ?? "");
     $("editor").focus();
   }
 }
 
-async function saveScript() {
-  if (!editing) return;
-  if (!currentPath) return askName("saveAs");
-  await call("scripts.save", { text: $("editor").value });
+// True once saved. False if it needs a name first, or you kept the other
+// version after a conflict.
+async function saveScript(force = false) {
+  if (!dirty && !force) return true;
+  if (!editPath) {
+    askName("saveAs");
+    return false;
+  }
+  const text = $("editor").value;
+  const result = await call("scripts.save", { text, base: baseText, path: editPath, force });
+  if (result?.conflict) {
+    const replace = confirm(
+      `${baseName(editPath)} changed on disk since you started editing (in another editor?). ` +
+        "Replace that version with yours?",
+    );
+    if (replace) return saveScript(true);
+    note("Not saved. Copy your changes somewhere, then switch scripts to see the other version.", "err");
+    return false;
+  }
+  baseText = text;
   setDirty(false);
-  note("Saved. The prompter updates in a moment.");
+  note(
+    editPath === currentPath
+      ? "Saved. The prompter updates in a moment."
+      : `Saved ${baseName(editPath)} (the prompter is showing another script).`,
+  );
+  return true;
 }
 
 function askName(purpose) {
@@ -249,6 +289,12 @@ function closeNameForm() {
 }
 
 if (app) {
+  // For the app: it asks before closing this window, quitting, or opening
+  // another script while there are unsaved edits (PrompterWindow.swift).
+  window.followspotEditor = {
+    state: () => ({ dirty, name: editPath ? baseName(editPath) : "the new script" }),
+    save: () => saveScript().catch(() => false),
+  };
   $("scriptbar").hidden = false;
   $("edit").addEventListener("click", () => setEditing(!editing));
   $("save").addEventListener("click", () => saveScript().catch(() => {}));
