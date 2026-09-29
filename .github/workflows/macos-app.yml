@@ -1,19 +1,25 @@
 name: macOS app
 
-# Builds dist/Followspot.app and checks that its bundled whisper-server
-# serves the page and tracks a script. Not a required check: macOS runner
-# speed varies a lot (see ci.yml), and it only needs to catch a broken build.
+# Builds dist/Followspot.app and checks the app's own parts: the bundle,
+# that its whisper-server starts, serves the page and transcribes, that it
+# passes the launcher's flags, and that quitting stops it. Transcription and
+# tracking quality are ci.yml's job (the Linux end-to-end check), so this
+# sends a single short clip rather than replaying a whole script, which took
+# 10+ minutes on the CPU-only macOS runner. Not a required check.
 #
 # Every run uploads Followspot-<version>.dmg as a workflow artifact; pushing a
-# v* tag also attaches it to a GitHub Release.
+# v* tag also attaches it to a GitHub Release. Path filters don't apply to
+# tag pushes, so a release always builds.
 on:
   push:
     branches: [main]
     tags: ["v*"]
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-app.yml"
   pull_request:
     paths:
       - "macos/**"
-      - "public/**"
       - ".github/workflows/macos-app.yml"
 
 permissions:
@@ -26,7 +32,7 @@ jobs:
   app:
     name: Build and smoke-test Followspot.app
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -93,9 +99,20 @@ jobs:
         run: |
           macos/check-args.sh "$HOME/Library/Application Support/Followspot/server.args" \
             -m models/ggml-base.en.bin -- --no-gpu -ac 512
-      - name: Simulated read-through against the app's server
+      - name: The bundled whisper-server transcribes
+        # The first 4 s of the recorded fixture: "Hey, this is a quick test of
+        # the prompter." One request proves the binary, its flags, and VAD
+        # work together; whether tracking is good is ci.yml's question.
         run: |
-          node tools/simulate.mjs examples/sample.md --audio test/fixtures/sample.wav --step 1 --port 8177
+          node --input-type=module -e '
+            import { readFileSync, writeFileSync } from "node:fs";
+            import { encodeWav } from "./public/audio.js";
+            const pcm = readFileSync("test/fixtures/sample.wav").subarray(44, 44 + 4 * 16000 * 2);
+            const samples = Float32Array.from({ length: pcm.length / 2 }, (_, i) => pcm.readInt16LE(i * 2) / 32768);
+            writeFileSync("clip.wav", encodeWav(samples));'
+          out=$(curl -fs http://127.0.0.1:8177/inference -F file=@clip.wav -F response_format=json)
+          echo "$out"
+          echo "$out" | grep -qiE "quick|test|prompter"
       - name: Quitting the app stops its server
         run: |
           osascript -e 'tell application "Followspot" to quit'
