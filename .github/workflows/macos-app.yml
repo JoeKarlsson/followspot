@@ -77,6 +77,8 @@ jobs:
           cp models/ggml-base.en.bin models/ggml-silero-v6.2.0.bin "$models/"
           defaults write com.joekarlsson.followspot model "$models/ggml-base.en.bin"
           defaults write com.joekarlsson.followspot extraArgs -array --no-gpu -ac 512
+          # An "update available" alert is modal and would stall the run.
+          defaults write com.joekarlsson.followspot checkForUpdates -bool false
           open dist/Followspot.app
           for _ in $(seq 1 120); do
             curl -fs -o /dev/null http://127.0.0.1:8177/ && exit 0
