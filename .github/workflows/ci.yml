@@ -38,8 +38,8 @@ jobs:
       - run: npm ci
       - name: Biome (lint + format check)
         run: npx biome ci .
-      - name: ShellCheck (launcher)
-        run: shellcheck followspot
+      - name: ShellCheck (launcher, macOS app scripts)
+        run: shellcheck followspot macos/*.sh macos/icon/*.sh
 
   # The required end-to-end check. Linux runners are dedicated VMs with steady
   # speed; the macOS ones varied from ~1 s to ~14 s per Whisper request between

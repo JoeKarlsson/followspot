@@ -1,0 +1,95 @@
+name: macOS app
+
+# Builds dist/Followspot.app and checks that its bundled whisper-server
+# serves the page and tracks a script. Not a required check: macOS runner
+# speed varies a lot (see ci.yml), and it only needs to catch a broken build.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "macos/**"
+      - "public/**"
+      - ".github/workflows/macos-app.yml"
+
+permissions:
+  contents: read
+
+env:
+  WHISPER_CPP_VERSION: v1.9.4
+
+jobs:
+  app:
+    name: Build and smoke-test Followspot.app
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Cache the bundled whisper-server
+        id: whisper-cache
+        uses: actions/cache@v6
+        with:
+          path: macos/.whisper/whisper-server
+          key: app-whisper-server-${{ env.WHISPER_CPP_VERSION }}-${{ runner.arch }}-${{ hashFiles('macos/build-whisper.sh') }}
+      - name: Build whisper-server (static, Metal embedded)
+        if: steps.whisper-cache.outputs.cache-hit != 'true'
+        run: macos/build-whisper.sh
+      - name: Build Followspot.app
+        run: macos/build.sh
+      - name: Check the bundle
+        run: |
+          app=dist/Followspot.app
+          test -x "$app/Contents/Helpers/whisper-server"
+          test -f "$app/Contents/Resources/public/index.html"
+          test ! -e "$app/Contents/Resources/public/current.md"
+          # Only system libraries: nothing from Homebrew, which users won't have.
+          if otool -L "$app/Contents/Helpers/whisper-server" | grep -E "/opt/homebrew|/usr/local"; then
+            exit 1
+          fi
+          codesign --verify --deep --strict "$app"
+          plutil -lint "$app/Contents/Info.plist"
+      - name: Cache Whisper and VAD models
+        uses: actions/cache@v6
+        with:
+          path: |
+            models/ggml-base.en.bin
+            models/ggml-silero-v6.2.0.bin
+          key: whisper-ggml-base.en-silero-v6.2.0-v1
+      - name: Download models
+        run: |
+          test -f models/ggml-base.en.bin || ./followspot download base.en
+          test -f models/ggml-silero-v6.2.0.bin || ./followspot download vad
+      - name: Launch the app
+        # The app finds the checkout's models/, and prefers the base model we
+        # just pinned. The runner has no usable GPU; -ac 512 as in ci.yml.
+        run: |
+          defaults write com.joekarlsson.followspot model "$PWD/models/ggml-base.en.bin"
+          defaults write com.joekarlsson.followspot extraArgs -array --no-gpu -ac 512
+          open dist/Followspot.app
+          for _ in $(seq 1 120); do
+            curl -fs -o /dev/null http://127.0.0.1:8177/ && exit 0
+            sleep 1
+          done
+          exit 1
+      - name: Page and script are served through the staging folder
+        run: |
+          curl -fs http://127.0.0.1:8177/ | grep -q "<title>"
+          curl -fs http://127.0.0.1:8177/demo.md > /dev/null
+      - name: Simulated read-through against the app's server
+        run: |
+          node tools/simulate.mjs examples/sample.md --audio test/fixtures/sample.wav --step 1 --port 8177
+      - name: Quitting the app stops its server
+        run: |
+          osascript -e 'tell application "Followspot" to quit'
+          for _ in $(seq 1 50); do
+            pgrep -f "Followspot.app/Contents/Helpers/whisper-server" > /dev/null || exit 0
+            sleep 0.2
+          done
+          echo "whisper-server still running after quit" >&2
+          exit 1
+      - name: Server log
+        if: failure()
+        run: cat "$HOME/Library/Application Support/Followspot/server.log" || true
