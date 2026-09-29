@@ -45,7 +45,7 @@ There's also a native app for Apple silicon Macs (macOS 14+). It's the same page
 
 On first launch it offers to download a model into `~/Library/Application Support/Followspot/models`. Every download is checked against Hugging Face's SHA-256 and resumes if the connection drops. It also uses Screen Studio's bundled model if you have it. **Model > Add Model File…** links in a model you already have somewhere else.
 
-**Scripts** live in `~/Documents/Followspot` (change it in Settings). The control window (**⌘K**) lists them. You can switch between them, create a new one, and edit the open script right there: **Edit**, then **⌘S** saves, and the prompter updates a moment later. **⌘O** still opens a script from anywhere, and so does dropping one on the Dock icon. Edits saved in another editor show up live, just as with the launcher.
+**Scripts** live in `~/Documents/Followspot` (change it in Settings). The control window (**⌘K**) lists them. You can switch between them, create a new one, and edit the open script right there: **Edit**, then **⌘S** saves, and the prompter updates a moment later. Closing the window, quitting, or opening another script with unsaved edits asks first. If the file changed in another editor while you were editing, saving asks before replacing that version. **⌘O** still opens a script from anywhere, and so does dropping one on the Dock icon. Edits saved in another editor show up live, just as with the launcher.
 
 **Settings (⌘,)**
 - **Devices:** microphone and camera.
@@ -76,11 +76,11 @@ macos/build.sh --install         # builds dist/Followspot.app and copies it to /
 macos/package.sh                 # optional: dist/Followspot-<version>.dmg
 ```
 
-Rebuilding changes the app's ad-hoc signature, so macOS asks for microphone and camera access again after each rebuild. Downloaded builds don't have this problem.
+Run `macos/make-signing-identity.sh` once first. It creates a self-signed "Followspot Local Signing" certificate in your login keychain, and `build.sh` uses it, so macOS keeps camera, microphone, and Documents permissions across rebuilds. Without it, each build is ad-hoc signed, and macOS asks again every time.
 
 ## Using it
 
-- **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page. Run `./followspot` with no script and you get a short demo script to try.
+- **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page. Run `./followspot` with no script and you get a short guide to how it works and how scripts are formatted, ending in a practice script to read aloud.
 - **Move the mouse** to bring up the control bar: listen, text size, column width, top and bottom margins, reading line, mirror, fullscreen, and more settings. It hides itself (and the pointer) after a moment.
 - **Click any word** to jump there, for re-takes.
 - **It remembers your place** in each script, so reopening one (or relaunching) picks up where you stopped, even if you've edited it since. Press **R** to start over. A script you'd finished starts from the top.
