@@ -4,7 +4,15 @@
 
 ### Added
 
-- A native macOS app (`macos/`). The prompter page runs in its own window, with a bundled static whisper-server (Metal), first-run model downloads, Open Script and Open Recent, a Model menu, and an app icon. Build it with `macos/build.sh --install`. CI builds it and smoke-tests the bundled server.
+- A native macOS app (`macos/`). The prompter page runs in its own window, with a bundled static whisper-server (Metal) and an app icon. CI builds a DMG for every push, and attaches it to the GitHub Release for each `v*` tag.
+  - A scripts folder (`~/Documents/Followspot` by default). The control window can switch, create, and edit scripts.
+  - Settings (⌘,): microphone and camera, model, VAD, fast mode, keep the display awake while listening, hide from screen recordings, float on top, port, and extra whisper-server flags.
+  - Global ⌃⌥ shortcuts that work while another app is in front.
+  - Model downloads are verified against Hugging Face's SHA-256 and resume after a dropped connection.
+  - Fast mode (`-ac 512`) is on by default for medium and large models. It measured about 3x faster on large-v3-turbo, but slower in the worst case on base.en, so small models run without it.
+  - CI checks that the app passes whisper-server the same flags as `./followspot`.
+- Presentation clickers and foot pedals: Page Up / Page Down move by paragraph, and B or `.` (a clicker's "blank screen" button) toggles listening.
+- The settings dialog lists microphones and cameras as soon as the page can see their names, instead of only after the next start.
 
 ### Fixed
 
