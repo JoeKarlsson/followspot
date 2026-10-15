@@ -78,6 +78,11 @@ function applyState(s) {
   $("heard").textContent = s.heard;
   $("latency").textContent = s.latency;
   $("listen").textContent = s.listening ? "Pause" : "Listen";
+  if (s.devices && JSON.stringify(s.devices) !== JSON.stringify(pageDevices)) {
+    pageDevices = s.devices;
+    // Not while a picker is open: rebuilding it would close it.
+    if (!document.activeElement?.matches("select[data-kind]")) listDevices();
+  }
   $("hud").classList.toggle("on", s.hud);
   for (const el of document.querySelectorAll("[data-on]"))
     el.classList.toggle("on", s.settings[el.dataset.on]);
@@ -130,16 +135,24 @@ for (const el of document.querySelectorAll("input[data-key], select[data-key]"))
   if (el.type === "range") el.addEventListener("change", () => el.blur());
 }
 
-// Device labels show once this origin has mic/camera permission, which the
-// prompter window grants; refresh whenever a picker is opened.
+// WebKit only names devices for a page that has used the mic or camera, and
+// this window never does, so it lists the prompter's devices (sent with the
+// state). Its own list is the fallback, for browsers that share permission.
+let pageDevices = [];
 async function listDevices() {
-  const devices = await navigator.mediaDevices.enumerateDevices();
+  const devices = pageDevices.length
+    ? pageDevices
+    : (await navigator.mediaDevices.enumerateDevices()).map((d) => ({
+        kind: d.kind,
+        id: d.deviceId,
+        label: d.label,
+      }));
   for (const sel of document.querySelectorAll("select[data-kind]")) {
     const value = sel.value;
     sel.textContent = "";
     sel.append(new Option("System default", ""));
     for (const d of devices.filter((d) => d.kind === sel.dataset.kind)) {
-      sel.append(new Option(d.label || d.deviceId.slice(0, 8), d.deviceId));
+      sel.append(new Option(d.label || d.id.slice(0, 8), d.id));
     }
     sel.value = value;
   }

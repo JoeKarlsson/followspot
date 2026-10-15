@@ -317,7 +317,21 @@ async function populateDevices(kind, selectId, value) {
   sel.append(new Option("System default", ""));
   for (const d of devices) sel.append(new Option(d.label || d.deviceId.slice(0, 8), d.deviceId));
   sel.value = value;
+  await shareDevices();
 }
+
+// The control window never opens the mic or camera itself, so WebKit hides
+// every device from it. It lists the devices this page can name instead,
+// which arrive with the state.
+let sharedDevices = [];
+async function shareDevices() {
+  const all = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  sharedDevices = all
+    .filter((d) => d.label && d.deviceId)
+    .map((d) => ({ kind: d.kind, id: d.deviceId, label: d.label }));
+  publish(true);
+}
+navigator.mediaDevices?.addEventListener("devicechange", () => shareDevices());
 
 // ---------- camera ----------
 
@@ -675,6 +689,7 @@ function publish(force = false) {
     hud: !document.body.classList.contains("hide-hud"),
     word: currentWord(),
     words: wordEls.length,
+    devices: sharedDevices,
   };
   const json = JSON.stringify(state);
   // Unchanged state still goes out once a second: the control window treats
@@ -698,6 +713,7 @@ channel.onmessage = ({ data: m }) => {
 
 applySettings();
 await fetchScript();
+shareDevices();
 setInterval(fetchScript, 2000); // picks up edits to the script file live
 setInterval(tick, 250);
 setInterval(publish, 100);
