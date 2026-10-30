@@ -2,25 +2,14 @@
 
 Voice-following browser teleprompter. `whisper-server` (whisper.cpp) does double duty: it serves `public/` as static files and transcribes audio at `/inference`, so the page and the model share one origin and there's no CORS and no second process.
 
+Area detail loads from `.claude/rules/` when you touch matching files: `macos.md` (the Swift app), `page.md` (`public/`, `tools/`, the launcher), `ci-tests.md` (CI, tests, fixtures).
+
 ## Commands
 
 ```bash
 ./followspot script.md                  # run it (opens the browser)
-./followspot script.md -p 8179 --no-open -- --no-gpu   # alt port, flags after -- go to whisper-server
-./followspot download base.en           # fetch a model into models/ (gitignored)
-./followspot download vad               # Silero VAD; auto-enabled when present (--no-vad to skip)
-macos/build-whisper.sh && macos/build.sh --install   # native app → /Applications/Followspot.app
-macos/make-signing-identity.sh          # once per Mac: stable local signature, so rebuilds keep TCC permissions
-macos/test.sh                           # Swift checks for the app's non-UI code (plain swiftc, no Xcode needed)
-macos/package.sh                        # dist/Followspot-<version>.dmg (CI does this on every push)
-macos/check-args.sh "$HOME/Library/Application Support/Followspot/server.args" -m models/<m>.bin -- <flags>  # app vs launcher flags
-macos/icon/make-icns.sh [png]           # regenerate the app icon (drawn in make-icon.swift, or from a PNG)
-npm run lint                          # Biome (lint + format check) + ShellCheck; npm run format to fix
-npm run check                         # node --check on all JS + bash -n followspot
-npm test                              # unit tests (node:test, no deps)
-npm run e2e                           # fixture replay vs a running ./followspot on 8178 (any OS)
-npm run fixtures                      # re-record test/fixtures after editing examples/sample.md (macOS say)
-node tools/simulate.mjs s.md --port 8179 --skip 3
+./followspot script.md -p 8179 --no-open -- --no-gpu   # flags after -- go to whisper-server
+npm test                                # unit tests; npm run e2e replays fixtures vs ./followspot on 8178
 ```
 
 ## Architecture
@@ -28,10 +17,7 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 - `public/align.js` is pure: `parseScript` (markdown to paragraphs of word/cue items), `buildTokens` (normalized match tokens that point back at display words), `align` (Smith-Waterman over words around the cursor). All tracking behavior lives here and is unit-tested.
 - `public/audio.js` is pure: decimator to 16 kHz, ring buffer, RMS, WAV encoder. Shared with `tools/simulate.mjs`, so the simulator exercises the browser's encoder.
 - `public/app.js` is wiring only: settings (localStorage), rendering, the listen loop (250 ms tick, 3.5 s window, silence gate), coast, toolbar, and keys.
-- There are two positions. `cursor` is confirmed by speech or by the user; `display` is what's highlighted and can coast up to 10 tokens ahead of `cursor`. A match always resets `display` to near `cursor`.
 - The whisper `prompt` is the ~30 script words *behind* the cursor. Don't prompt with upcoming text: Whisper will echo it and the cursor will run ahead of the speaker.
-- `macos/` is a thin Swift wrapper around the same page. It runs the bundled whisper-server on 8177 with the launcher's flags, serves a staging folder of symlinks (`~/Library/Application Support/Followspot/www`, with `current.md` pointing at the open script), and shows it in a WKWebView. Keep behavior in `public/`: the app should need no page changes. App and page talk two ways (`Bridge.swift`): the app joins the page's BroadcastChannel via an injected user script (sending actions and settings, reading listening state), and the page calls `webkit.messageHandlers.followspot` through `public/native.js` for app-only features (scripts list, save, create). The page never passes a path to write: saves go to the open script, and new scripts are created by name in the scripts folder.
-- Release builds (`build.sh`, `-c release`) never look outside the bundle and Application Support; `Paths.repo` (the checkout's `models/`, `public/`, `macos/.whisper/`) exists only in debug `swift run` builds.
 
 ## Rules
 
@@ -44,22 +30,3 @@ node tools/simulate.mjs s.md --port 8179 --skip 3
 ## Gotchas
 
 - In the maintainer's shell, `node` is an nvm lazy-load function that fails silently in non-interactive shells. Use the absolute binary (`~/.nvm/versions/node/<v>/bin/node`) or put it on PATH first.
-- `public/current.md` is a symlink the launcher creates to the active script (gitignored). The page polls it every 2 s for live edits. A dropped file stops polling until reload.
-- `whisper-server --public` follows symlinks, which is what makes live editing work.
-- CI speed: Whisper's encoder pads every request to 30 s, so request cost barely depends on clip length. CI passes `-ac 512` (4x faster on CPU) and runs the simulator with `--step 1` (half the requests). The runner is a 3-core virtual M1 whose speed still varies ~5x between runs; the simulator prints median/p90/max latency so slow runs are diagnosable. Thread count was checked and is not the cause (launcher already uses 3).
-- `say` occasionally writes an empty file on a fresh runner; `tools/simulate.mjs` retries 3 times and exits 2 with a clear message. PR CI avoids `say` entirely: the required e2e runs on Linux from `test/fixtures` (built whisper-server, cached per CPU-flags hash). macOS runs only after merge, as a non-required smoke test.
-- Editing `examples/sample.md` makes the fixtures stale; the simulator exits 3 until you run `npm run fixtures` and commit the result.
-- The GitHub macOS runner has no usable GPU. CI passes `-- --no-gpu`. Its Homebrew is older and only knows the formula as `whisper-cpp` (newer Homebrew calls it `whisper.cpp` but accepts both), so docs and CI use `whisper-cpp`.
-- The Bash tool's shell here is zsh: an unquoted `$args` string is not word-split. Script launcher tests in bash with arrays.
-- On macOS, headless Chrome's `--use-file-for-fake-audio-capture` delivers pure silence (checked with an AnalyserNode). `tools/record-demo.mjs` instead injects a `getUserMedia` replacement via `Page.addScriptToEvaluateOnNewDocument` that plays the WAV through a `MediaStreamDestination`.
-- The recorder worklet is routed through a zero-gain node to `destination` so engines that only process pulled nodes still call `process()`. Don't "clean up" that connection.
-- Headless Chrome (`--dump-dom`, `--screenshot`) is the quickest way to check the page renders without errors. `requestAnimationFrame` barely runs there, which is why scrolling snaps on load (`snap = true`) rather than easing.
-- SwiftPM owns `macos/.build/`, and anything else in there makes `swift build` fail with no error output. That's why the whisper.cpp checkout lives in `macos/.whisper/`.
-- With only the Command Line Tools (no Xcode), Swift macro plugins are missing: SwiftUI's `@State` and Swift Testing's `@Test`/`#expect` fail to compile. The app keeps view state in `ObservableObject`s, and `macos/test.sh` compiles `Tests/Checks.swift` with the Foundation-only sources and a tiny `expect()` runner. A source file the checks need must stay free of AppKit/SwiftUI.
-- The app's `localStorage` is keyed by origin, and the origin includes the port. That's why the port is fixed (8177). Changing it resets the page's saved settings in the app.
-- `defaults write … -array` stores `--` literally and numbers as numbers. `extraArgs` is read as `[Any]`, so don't switch it back to `stringArray`.
-- Fast mode (`-ac 512`) only applies to models of 1 GB and up: measured 3x faster on large-v3-turbo, but base.en's worst request doubled. Resolve symlinks before checking model size (linked models otherwise read as a few bytes).
-- Never send test keystrokes with System Events `keystroke`/`key code`: they go to whatever is frontmost, and have typed into the user's terminal. Type into the app with a CGEvent `postToPid` helper instead (events can only reach that process), and use targeted AX clicks and menu items for everything else.
-- In an untyped (`Any`) dictionary, `url.path` can resolve to the `path(percentEncoded:)` method rather than the property. WebKit then silently drops the whole bridge reply and the page's promise never settles. Use `path(percentEncoded: false)`. `Bridge` now rejects replies that aren't valid JSON, and `Checks.swift` covers the reply shapes.
-- The prompter publishes state at least once a second: the control window treats 2 s of silence as "prompter closed" and re-requests everything (it used to flicker and re-run script handling while idle).
-- Driving the app in tests: System Events can click WKWebView content through the accessibility tree (`entire contents of window …` gives the paths), and `pmset -g assertions` shows whether "Followspot is listening" is holding the display awake. WebKit's `<select>` popups don't expose their items; open them and use arrow keys. Controls show up in the accessibility tree even when they're laid out at zero size, so also check `size of` the containing area (a grouped SwiftUI `Form` has no height of its own).
