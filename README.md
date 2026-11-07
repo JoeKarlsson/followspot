@@ -12,9 +12,9 @@ Your audio never leaves your machine. The page sends it to a whisper.cpp server 
 
 ## Recording (November 2026)
 
-[![FollowSpot highlighting the current word of a bread recipe script as it scrolls, with dimmed words already read](.github/readme/2026-11-recording.webp)](.github/readme/2026-11-recording.mp4)
+![FollowSpot highlighting the current word of a bread recipe script as it scrolls, with dimmed words already read](.github/readme/2026-11-recording.gif)
 
-What FollowSpot looked like in November 2026, recorded for [its page on joekarlsson.com](https://www.joekarlsson.com/work/followspot/). Click the picture to play the video.
+What FollowSpot looked like in November 2026, recorded for [its page on joekarlsson.com](https://www.joekarlsson.com/work/followspot/). The full-quality video is [2026-11-recording.mp4](.github/readme/2026-11-recording.mp4).
 
 ## Why another teleprompter?
 
