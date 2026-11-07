@@ -10,6 +10,12 @@ Your audio never leaves your machine. The page sends it to a whisper.cpp server 
 
 *Recorded with [`tools/record-demo.mjs`](tools/record-demo.mjs): real speech through the real pipeline and `medium` model, no faked scrolling. The top-left panel shows Whisper's latency and the last thing it heard.*
 
+## Recording (November 2026)
+
+[![FollowSpot highlighting the current word of a bread recipe script as it scrolls, with dimmed words already read](.github/readme/2026-11-recording.webp)](.github/readme/2026-11-recording.mp4)
+
+What FollowSpot looked like in November 2026, recorded for [its page on joekarlsson.com](https://www.joekarlsson.com/work/followspot/). Click the picture to play the video.
+
 ## Why another teleprompter?
 
 Most browser teleprompters that follow your voice use the browser's built-in speech recognition. In Chrome that means your audio goes to Google, and you can't choose the model. Hardware prompter apps that run on-device tend to ship a small Whisper model you can't swap out. This one lets you pick any whisper.cpp model, from `base.en` on a laptop to `large-v3-turbo` on a fast Mac, and it's built to keep going when the transcript is only mostly right.
