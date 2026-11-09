@@ -4,21 +4,9 @@
 
 A voice-following teleprompter that runs in your browser and listens with a local [whisper.cpp](https://github.com/ggml-org/whisper.cpp) model. Read your script out loud and the highlight follows you. Skip a sentence, flub a word, or ad-lib a little and it keeps going. Stop talking and it stops too.
 
-Your audio never leaves your machine. The page sends it to a whisper.cpp server bound to `127.0.0.1`, and that's the only place it goes.
+Your audio never leaves your machine. The page sends it to a whisper.cpp server bound to `127.0.0.1`, and that's the only place it goes. Unlike browser speech recognition, you pick the model, from `base.en` on a laptop to `large-v3-turbo` on a fast Mac. This repo has the page, the `./followspot` launcher and a native macOS app.
 
 ![Followspot tracking a spoken script: read words dim, the current word is highlighted, and the page scrolls to keep it on the reading line](docs/demo.gif)
-
-*Recorded with [`tools/record-demo.mjs`](tools/record-demo.mjs): real speech through the real pipeline and `medium` model, no faked scrolling. The top-left panel shows Whisper's latency and the last thing it heard.*
-
-## Recording (November 2026)
-
-![FollowSpot highlighting the current word of a bread recipe script as it scrolls, with dimmed words already read](.github/readme/2026-11-recording.gif)
-
-What FollowSpot looked like in November 2026, recorded for [its page on joekarlsson.com](https://www.joekarlsson.com/work/followspot/). The full-quality video is [2026-11-recording.mp4](.github/readme/2026-11-recording.mp4).
-
-## Why another teleprompter?
-
-Most browser teleprompters that follow your voice use the browser's built-in speech recognition. In Chrome that means your audio goes to Google, and you can't choose the model. Hardware prompter apps that run on-device tend to ship a small Whisper model you can't swap out. This one lets you pick any whisper.cpp model, from `base.en` on a laptop to `large-v3-turbo` on a fast Mac, and it's built to keep going when the transcript is only mostly right.
 
 ## Quick start
 
@@ -51,7 +39,7 @@ There's also a native app for Apple silicon Macs (macOS 14+). It's the same page
 
 On first launch it offers to download a model into `~/Library/Application Support/Followspot/models`. Every download is checked against Hugging Face's SHA-256 and resumes if the connection drops. It also uses Screen Studio's bundled model if you have it. **Model > Add Model File…** links in a model you already have somewhere else.
 
-**Scripts** live in `~/Documents/Followspot` (change it in Settings). The control window (**⌘K**) lists them. You can switch between them, create a new one, and edit the open script right there: **Edit**, then **⌘S** saves, and the prompter updates a moment later. Closing the window, quitting, or opening another script with unsaved edits asks first. If the file changed in another editor while you were editing, saving asks before replacing that version. **⌘O** still opens a script from anywhere, and so does dropping one on the Dock icon. Edits saved in another editor show up live, just as with the launcher.
+**Scripts** live in `~/Documents/Followspot` (change it in Settings). The control window (**⌘K**) lists, creates and edits them; **⌘O** or dropping a file on the Dock icon opens one from anywhere.
 
 **Settings (⌘,)**
 - **Devices:** microphone and camera.
@@ -87,9 +75,9 @@ Run `macos/make-signing-identity.sh` once first. It creates a self-signed "Follo
 ## Using it
 
 - **Your script is linked, not copied.** Edits you save in your editor show up within a couple of seconds. You can also drag any `.md` or `.txt` file onto the page. Run `./followspot` with no script and you get a short guide to how it works and how scripts are formatted, ending in a practice script to read aloud.
-- **Move the mouse** to bring up the control bar: listen, text size, column width, top and bottom margins, reading line, mirror, fullscreen, and more settings. It hides itself (and the pointer) after a moment.
+- **Move the mouse** to bring up the control bar.
 - **Click any word** to jump there, for re-takes.
-- **It remembers your place** in each script, so reopening one (or relaunching) picks up where you stopped, even if you've edited it since. Press **R** to start over. A script you'd finished starts from the top.
+- **It remembers your place** in each script. Press **R** to start over.
 - **On a beam-splitter prompter** (Elgato Prompter and similar), drag the window to the prompter's display, go fullscreen, and turn on Mirror if the text reads backward. The text column is centered on the lens. Use the top and bottom margins to keep the text in the part of the glass you read from, and move the reading line until the current line sits at lens height.
 
 ### Keys
@@ -157,10 +145,7 @@ mic ─► AudioWorklet ─► 16 kHz ring buffer ─► last 3.5 s as WAV ─�
 script ◄── highlight + scroll ◄── cursor ◄── fuzzy alignment ◄──────────┘
 ```
 
-1. Every quarter second, if you're talking (a silence gate filters room noise), the page sends the last 3.5 seconds of audio to whisper.cpp.
-2. The words just behind your place go along as Whisper's prompt. That nudges it toward your script's spelling of names ("Muse", not "Muze") without inviting it to guess ahead.
-3. The transcript is matched against the script around your place with a fuzzy local alignment (Smith-Waterman over words). Misheard words, digits vs. spelled-out numbers, and plurals still count. It needs at least two matching words to move, more evidence to jump far ahead, and more still to move backward.
-4. If you're clearly talking but nothing has matched for 1.5 seconds, the highlight coasts forward slowly so it never stalls. The next real match pulls it back into line. Set the coast speed to 0 in Settings to turn this off.
+Every quarter second, while you're talking, the page sends the last 3.5 seconds to whisper.cpp, with the words just behind your place as the prompt. The transcript is matched against the script around your place with a fuzzy Smith-Waterman alignment over words (`public/align.js`); it needs two matching words to move and more evidence to jump far or move backward. If you're talking but nothing has matched for 1.5 seconds, the highlight coasts forward slowly (set the coast speed to 0 in Settings to turn that off).
 
 ## Troubleshooting
 
@@ -179,7 +164,7 @@ npm test         # unit tests for the matcher and audio helpers
 npm run e2e      # end to end against a running ./followspot, from recorded fixtures (any OS)
 npm run fixtures # re-record test/fixtures/ after editing examples/sample.md (macOS, uses `say`)
 node tools/simulate.mjs your-script.md --skip 4   # live `say` read of any script, dropping every 4th sentence
-npm run demo     # re-record docs/demo.gif (macOS, Chrome, ffmpeg; needs ./followspot running)
+npm run demo     # re-record docs/demo.gif from public/recipe.md (macOS, Chrome, ffmpeg; needs ./followspot running)
 ```
 
 `tools/simulate.mjs` replays speech through the running server in the same rolling windows the browser uses, and fails unless the cursor reaches the end. The speech is either live macOS `say` or a recorded fixture; each fixture carries the exact text it was recorded from, and the simulator refuses a stale one. CI runs the fixtures on Linux for every pull request, and a live `say` run on macOS after each merge. See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -188,4 +173,4 @@ No build step and no runtime dependencies: `public/` is plain ES modules served 
 
 ## License
 
-[MIT](LICENSE)
+MIT. See [LICENSE](LICENSE).
