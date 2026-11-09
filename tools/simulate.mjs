@@ -95,19 +95,30 @@ if (audioIn) {
   }
   pcm = readWav(audioIn);
 } else {
-  // On fresh CI runners `say` sometimes writes an empty file (the speech
-  // service isn't up yet), so retry before giving up with a clear message.
-  for (let attempt = 1; attempt <= 3 && pcm.length < RATE; attempt++) {
-    if (attempt > 1) {
-      console.warn(`say produced no audio, retrying (${attempt}/3)`);
-      execFileSync("sleep", ["2"]);
-    }
+  // On fresh CI runners `say` sometimes writes an empty file because the
+  // speech service isn't up yet; it can take longer than a few seconds, so
+  // keep trying until it produces audio or a deadline passes.
+  const SAY_READY_TIMEOUT_MS = 90_000;
+  const started = Date.now();
+  let attempts = 0;
+  for (;;) {
+    attempts++;
     pcm = synthesize();
+    if (pcm.length >= RATE) break;
+    const waited = Date.now() - started;
+    if (waited >= SAY_READY_TIMEOUT_MS) {
+      console.error(
+        `say produced no audio after ${attempts} attempts over ${Math.round(waited / 1000)}s; is macOS speech synthesis available?`,
+      );
+      process.exit(2);
+    }
+    console.warn(`say produced no audio (attempt ${attempts}), waiting for the speech service...`);
+    execFileSync("sleep", ["3"]);
   }
-  if (pcm.length < RATE) {
-    console.error("say produced no audio after 3 attempts; is macOS speech synthesis available?");
-    process.exit(2);
-  }
+  if (attempts > 1)
+    console.log(
+      `say produced audio on attempt ${attempts} after ${Math.round((Date.now() - started) / 1000)}s`,
+    );
 }
 
 if (audioOut) {
